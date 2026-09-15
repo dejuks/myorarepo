@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/notification-service:latest
+    container_name: ora-notification-service
+    restart: unless-stopped
+    ports:
+      - "4009:4009"
+    environment:
+      NODE_ENV: production
+      PORT: 4009
+      SERVICE_NAME: notification-service
+      DB_HOST: notification-db
+      DB_PORT: 5432
+      DB_USERNAME: notification_service_user
+      DB_PASSWORD: notification_service_password
+      DB_DATABASE: notification_db
+      DB_SSL: "false"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+      JWT_ISSUER: ora-platform
+      JWT_AUDIENCE: ora-platform-clients
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.notification.events
+      AUTH_EXCHANGE: ora.auth.events
+      USER_EXCHANGE: ora.user.events
+      EMAIL_PROVIDER: console
+      LOG_LEVEL: info
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ora-network
+
+  notification-db:
+    image: postgres:16-alpine
+    container_name: ora-notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notification_service_user
+      POSTGRES_PASSWORD: notification_service_password
+      POSTGRES_DB: notification_db
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_service_user -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ora-notification-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  notification-db-data:
