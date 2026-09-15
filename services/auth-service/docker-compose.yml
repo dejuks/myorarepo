@@ -1,0 +1,103 @@
+version: "3.9"
+
+# Standalone compose file for developing auth-service in isolation.
+# The full-platform compose file (infra/docker-compose.yml, see Phase 1
+# docs) brings up every service plus a shared RabbitMQ/Redis/MinIO; this
+# file is self-contained so auth-service can be built and reviewed on its own.
+
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/auth-service:latest
+    container_name: ora-auth-service
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      NODE_ENV: production
+      PORT: 4001
+      SERVICE_NAME: auth-service
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_USERNAME: auth_service_user
+      DB_PASSWORD: auth_service_password
+      DB_DATABASE: auth_db
+      DB_SSL: "false"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me_32_chars_min}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      JWT_ISSUER: ora-platform
+      JWT_AUDIENCE: ora-platform-clients
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.auth.events
+      LOG_LEVEL: info
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ora-network
+
+  auth-db:
+    image: postgres:16-alpine
+    container_name: ora-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: auth_service_user
+      POSTGRES_PASSWORD: auth_service_password
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_service_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ora-auth-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ora-auth-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  auth-db-data:
