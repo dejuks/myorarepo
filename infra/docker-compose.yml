@@ -1,0 +1,240 @@
+
+# Full local platform stack — brings up every service built so far, each
+# with its own database, on one shared network, plus the gateway in front
+# of them and shared RabbitMQ/Redis. This is the "one command" dev
+# environment referenced in docs/01-architecture.md §12.
+#
+# Usage (from the ora-platform repo root):
+#   docker compose -f infra/docker-compose.yml up --build
+#
+# Then open, in a browser:
+#   http://localhost:8080/health/ready   -> gateway's aggregated health check
+#   http://localhost:4001/api-docs       -> auth-service Swagger UI
+#   http://localhost:4002/api-docs       -> user-service Swagger UI
+#   http://localhost:4009/api-docs       -> notification-service Swagger UI
+#
+# All business traffic should go through the gateway on :8080 (e.g.
+# POST http://localhost:8080/api/v1/auth/register), which is what a real
+# client would call — the direct service ports above are exposed only so
+# you can reach each service's own Swagger UI for interactive testing.
+
+x-jwt-env: &jwt-env
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+  JWT_ISSUER: ora-platform
+  JWT_AUDIENCE: ora-platform-clients
+
+services:
+  # ---------------------------------------------------------------------
+  # Shared infrastructure
+  # ---------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ora-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ora-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI: http://localhost:15672 (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
+  # auth-service + its database
+  # ---------------------------------------------------------------------
+  auth-db:
+    image: postgres:16-alpine
+    container_name: ora-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: auth_service_user
+      POSTGRES_PASSWORD: auth_service_password
+      POSTGRES_DB: auth_db
+    volumes: [auth-db-data:/var/lib/postgresql/data]
+    ports: ["5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_service_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  auth-service:
+    build: { context: ../services/auth-service, dockerfile: Dockerfile }
+    container_name: ora-auth-service
+    restart: unless-stopped
+    ports: ["4001:4001"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4001
+      SERVICE_NAME: auth-service
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_USERNAME: auth_service_user
+      DB_PASSWORD: auth_service_password
+      DB_DATABASE: auth_db
+      DB_SSL: "false"
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me_32_chars_min}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.auth.events
+      LOG_LEVEL: info
+    depends_on:
+      auth-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
+  # user-service + its database
+  # ---------------------------------------------------------------------
+  user-db:
+    image: postgres:16-alpine
+    container_name: ora-user-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user_service_user
+      POSTGRES_PASSWORD: user_service_password
+      POSTGRES_DB: user_db
+    volumes: [user-db-data:/var/lib/postgresql/data]
+    ports: ["5434:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_service_user -d user_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  user-service:
+    build: { context: ../services/user-service, dockerfile: Dockerfile }
+    container_name: ora-user-service
+    restart: unless-stopped
+    ports: ["4002:4002"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4002
+      SERVICE_NAME: user-service
+      DB_HOST: user-db
+      DB_PORT: 5432
+      DB_USERNAME: user_service_user
+      DB_PASSWORD: user_service_password
+      DB_DATABASE: user_db
+      DB_SSL: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.user.events
+      LOG_LEVEL: info
+    depends_on:
+      user-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
+  # notification-service + its database
+  # ---------------------------------------------------------------------
+  notification-db:
+    image: postgres:16-alpine
+    container_name: ora-notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notification_service_user
+      POSTGRES_PASSWORD: notification_service_password
+      POSTGRES_DB: notification_db
+    volumes: [notification-db-data:/var/lib/postgresql/data]
+    ports: ["5435:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_service_user -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  notification-service:
+    build: { context: ../services/notification-service, dockerfile: Dockerfile }
+    container_name: ora-notification-service
+    restart: unless-stopped
+    ports: ["4009:4009"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4009
+      SERVICE_NAME: notification-service
+      DB_HOST: notification-db
+      DB_PORT: 5432
+      DB_USERNAME: notification_service_user
+      DB_PASSWORD: notification_service_password
+      DB_DATABASE: notification_db
+      DB_SSL: "false"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.notification.events
+      AUTH_EXCHANGE: ora.auth.events
+      USER_EXCHANGE: ora.user.events
+      EMAIL_PROVIDER: console
+      LOG_LEVEL: info
+    depends_on:
+      notification-db: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
+  # gateway — the single entry point for testing everything above
+  # ---------------------------------------------------------------------
+  gateway:
+    build: { context: ../services/gateway, dockerfile: Dockerfile }
+    container_name: ora-gateway
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 8080
+      SERVICE_NAME: api-gateway
+      AUTH_SERVICE_URL: http://auth-service:4001
+      USER_SERVICE_URL: http://user-service:4002
+      NOTIFICATION_SERVICE_URL: http://notification-service:4009
+      # Not yet built — routes registered but return 503 until deployed (see service-registry.ts).
+      RESEARCHER_SERVICE_URL: http://researcher-service:4003
+      REPOSITORY_SERVICE_URL: http://repository-service:4004
+      JOURNAL_SERVICE_URL: http://journal-service:4005
+      EBOOK_SERVICE_URL: http://ebook-service:4006
+      LIBRARY_SERVICE_URL: http://library-service:4007
+      WIKI_SERVICE_URL: http://wiki-service:4008
+      SEARCH_SERVICE_URL: http://search-service:4010
+      MONITORING_SERVICE_URL: http://monitoring-service:4011
+      LOG_LEVEL: info
+    depends_on:
+      - auth-service
+      - user-service
+      - notification-service
+    networks: [ora-network]
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  user-db-data:
+  notification-db-data:

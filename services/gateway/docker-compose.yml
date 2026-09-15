@@ -1,4 +1,3 @@
-version: "3.9"
 
 # Standalone compose file for the gateway + an Nginx TLS-termination
 # sidecar, matching docs/01-architecture.md §2. Point it at already-running

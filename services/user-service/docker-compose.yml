@@ -1,4 +1,3 @@
-version: "3.9"
 
 # Standalone compose file for developing user-service in isolation, mirroring
 # auth-service's own docker-compose.yml. The full-platform compose file
