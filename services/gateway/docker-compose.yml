@@ -1,0 +1,60 @@
+version: "3.9"
+
+# Standalone compose file for the gateway + an Nginx TLS-termination
+# sidecar, matching docs/01-architecture.md §2. Point it at already-running
+# auth-service / user-service containers (e.g. via `docker compose -f
+# ../auth-service/docker-compose.yml -f ../user-service/docker-compose.yml
+# -f docker-compose.yml up`, or the future infra/docker-compose.yml that
+# brings up the whole platform on one shared network).
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/gateway:latest
+    container_name: ora-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      SERVICE_NAME: api-gateway
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+      JWT_ISSUER: ora-platform
+      JWT_AUDIENCE: ora-platform-clients
+      AUTH_SERVICE_URL: http://auth-service:4001
+      USER_SERVICE_URL: http://user-service:4002
+      RESEARCHER_SERVICE_URL: http://researcher-service:4003
+      REPOSITORY_SERVICE_URL: http://repository-service:4004
+      JOURNAL_SERVICE_URL: http://journal-service:4005
+      EBOOK_SERVICE_URL: http://ebook-service:4006
+      LIBRARY_SERVICE_URL: http://library-service:4007
+      WIKI_SERVICE_URL: http://wiki-service:4008
+      NOTIFICATION_SERVICE_URL: http://notification-service:4009
+      SEARCH_SERVICE_URL: http://search-service:4010
+      MONITORING_SERVICE_URL: http://monitoring-service:4011
+      LOG_LEVEL: info
+    networks:
+      - ora-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ora-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # - ./nginx/certs:/etc/nginx/certs:ro   # mount real certs in staging/production
+    depends_on:
+      - gateway
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    external: true
+    name: ora-network
