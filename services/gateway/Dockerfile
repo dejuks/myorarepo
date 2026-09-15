@@ -3,7 +3,7 @@ WORKDIR /usr/src/app
 RUN apk add --no-cache dumb-init
 
 FROM base AS dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --include=dev
 
 FROM dependencies AS build
@@ -12,7 +12,7 @@ COPY src ./src
 RUN npm run build
 
 FROM base AS prod-dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 FROM base AS runtime

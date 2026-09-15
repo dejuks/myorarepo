@@ -5,7 +5,7 @@ RUN apk add --no-cache dumb-init
 
 # ---- Dependencies (cached layer) ----
 FROM base AS dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --include=dev
 
 # ---- Build ----
@@ -16,7 +16,7 @@ RUN npm run build
 
 # ---- Production dependencies only ----
 FROM base AS prod-dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # ---- Final runtime image ----
