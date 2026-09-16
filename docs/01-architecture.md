@@ -27,6 +27,23 @@ Twelve services make up the platform. Each owns exactly one PostgreSQL database,
 
 Every service additionally satisfies the same cross-cutting contract: Clean Architecture layering, Repository Pattern, Service Layer Pattern, DTO validation (`class-validator`/`zod`), JWT authentication (via the shared `@ora/auth-client` package, not by re-implementing JWT logic), Docker support, REST + Swagger, unit tests (Jest), structured logging (`pino`/`winston`), and a `/health` and `/health/ready` endpoint.
 
+### 2a. Standalone per-module RBAC (roles #4–#9)
+
+Each content module (`researcher-service`, `repository-service`, `journal-service`, `ebook-service`, `library-service`, `wiki-service`) owns its **own** role catalog and its **own** user-to-role assignments, scoped entirely to that module — e.g. "Journal Manager" is a row in `journal_db`, not a role in `user_db`. This is a deliberate decoupling decision: a module service trusts the gateway-verified JWT for the caller's *identity* only (`userId`, `email` — same shared `JWT_ACCESS_SECRET` verification contract every service already implements) and makes **zero runtime calls** to `user-service` or `auth-service` to authorize anything. Module role catalogs come straight from this platform's SRS "User Classes" tables (one per module) and are seeded via migration, e.g.:
+
+| Module | Roles (seeded, `is_system = true`) | Local "admin" role (manages this module's roles) |
+|---|---|---|
+| `journal-service` | JOURNAL_MANAGER, EDITOR_IN_CHIEF, ASSOCIATE_EDITOR, REVIEWER, AUTHOR | JOURNAL_MANAGER |
+| `ebook-service` | BOOK_EDITOR, DIGITAL_CONTENT_MANAGER, FINANCE_OPERATIONS_OFFICER, AUTHOR_RESEARCHER | BOOK_EDITOR |
+| `library-service` | LIBRARY_MANAGER, DIGITAL_LIBRARIAN, LIBRARIAN, CATALOGER, INVENTORY_MANAGER, MEMBER | LIBRARY_MANAGER |
+| `wiki-service` | REGISTERED_EDITOR, ADMINISTRATOR, BUREAUCRAT, OVERSIGHTER | BUREAUCRAT |
+| `repository-service` | RESEARCHER_AUTHOR, REPOSITORY_CURATOR, CONTENT_REVIEWER, REPOSITORY_ADMINISTRATOR | REPOSITORY_ADMINISTRATOR |
+| `researcher-service` | RESEARCHER_MEMBER, GROUP_MODERATOR, EVENT_CONTENT_MANAGER, PLATFORM_ADMINISTRATOR | PLATFORM_ADMINISTRATOR |
+
+The same chicken-and-egg problem `auth-service`/`user-service` solved for the platform-wide ADMIN role (see `services/auth-service/README.md`) recurs once per module: the very first person able to assign a module's roles needs one already assigned by someone. Each module solves it the same way — an idempotent, env-var-gated startup seed (`infrastructure/bootstrap/module-admin.bootstrap.ts`) that assigns the platform's `SUPER_ADMIN_EMAIL` account both the module's base role and its local "admin" role, using the same deterministic UUID v5 derivation (`common/utils/bootstrap-id.util.ts`, byte-identical across all eight services that have a copy) so it lands on the same `userId` as the platform-wide seed, with zero cross-service coordination.
+
+What ships in this pass is the **authorization slice only** — role catalog, role assignment, and the `requireAuth`/`requireRoles`/`requireSelfOrRoles` middleware every future endpoint in that module builds on. The actual business workflows each module table above describes (manuscript submission, book proofing, circulation, wiki editing, deposits, networking) are still future work; each module service currently exposes only `/roles` and `/members/:userId/roles` under its gateway prefix, plus `/health` and `/health/ready`.
+
 ## 3. Service Boundaries — Design Rules
 
 Boundaries follow domain-driven design: each service owns a single bounded context and is the sole writer of its data.
@@ -219,4 +236,6 @@ Every service, without exception, ships with: Clean Architecture layering as in 
 
 ## 14. Build Order
 
-Authentication Service is built first (Phase 2) because every other service depends on it for token verification. Recommended order after that: User Management Service (auth needs it for role lookups) → API Gateway → Notification Service (needed by everything else for events) → Search Service → then the four content services (Journal, Ebook, Library, Repository) → Researcher Network → Oromo Wikipedia → Monitoring Service last (it observes everything else, so it's most useful once there's something to observe).
+Authentication Service is built first (Phase 2) because every other service depends on it for token verification. Recommended order after that: User Management Service (auth needs it for role lookups) → API Gateway → Notification Service (needed by everything else for events) → Search Service → then the six content services (Journal, Ebook, Library, Wiki, Repository, Researcher Network) → Monitoring Service last (it observes everything else, so it's most useful once there's something to observe).
+
+As of this pass, all six content services exist and are deployed, but only with their standalone RBAC slice (§2a) — role catalog and role assignment. Their actual business workflows (manuscript submission, book proofing, circulation, wiki editing, deposits, networking) are the next build increment, one module at a time, same as every other service in this document.

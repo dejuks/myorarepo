@@ -1,0 +1,62 @@
+
+# Standalone compose file for developing ebook-service in isolation, mirroring
+# user-service's own docker-compose.yml. The full-platform compose file
+# (infra/docker-compose.yml) brings up every service together.
+
+services:
+  ebook-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/ebook-service:latest
+    container_name: ora-ebook-service
+    restart: unless-stopped
+    ports:
+      - "4006:4006"
+    environment:
+      NODE_ENV: production
+      PORT: 4006
+      SERVICE_NAME: ebook-service
+      DB_HOST: ebook-db
+      DB_PORT: 5432
+      DB_USERNAME: ebook_service_user
+      DB_PASSWORD: ebook_service_password
+      DB_DATABASE: ebook_db
+      DB_SSL: "false"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+      JWT_ISSUER: ora-platform
+      JWT_AUDIENCE: ora-platform-clients
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      LOG_LEVEL: info
+    depends_on:
+      ebook-db:
+        condition: service_healthy
+    networks:
+      - ora-network
+
+  ebook-db:
+    image: postgres:16-alpine
+    container_name: ora-ebook-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ebook_service_user
+      POSTGRES_PASSWORD: ebook_service_password
+      POSTGRES_DB: ebook_db
+    volumes:
+      - ebook-db-data:/var/lib/postgresql/data
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ebook_service_user -d ebook_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  ebook-db-data:

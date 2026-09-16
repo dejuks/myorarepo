@@ -1,0 +1,64 @@
+
+# Standalone compose file for developing researcher-service in isolation,
+# mirroring user-service's own docker-compose.yml (no Redis, no RabbitMQ —
+# this service has zero runtime dependency on any other service or broker).
+# The full-platform compose file (infra/docker-compose.yml) brings up every
+# service together.
+
+services:
+  researcher-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/researcher-service:latest
+    container_name: ora-researcher-service
+    restart: unless-stopped
+    ports:
+      - "4003:4003"
+    environment:
+      NODE_ENV: production
+      PORT: 4003
+      SERVICE_NAME: researcher-service
+      DB_HOST: researcher-db
+      DB_PORT: 5432
+      DB_USERNAME: researcher_service_user
+      DB_PASSWORD: researcher_service_password
+      DB_DATABASE: researcher_db
+      DB_SSL: "false"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
+      JWT_ISSUER: ora-platform
+      JWT_AUDIENCE: ora-platform-clients
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      LOG_LEVEL: info
+    depends_on:
+      researcher-db:
+        condition: service_healthy
+    networks:
+      - ora-network
+
+  researcher-db:
+    image: postgres:16-alpine
+    container_name: ora-researcher-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: researcher_service_user
+      POSTGRES_PASSWORD: researcher_service_password
+      POSTGRES_DB: researcher_db
+    volumes:
+      - researcher-db-data:/var/lib/postgresql/data
+    ports:
+      - "5442:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researcher_service_user -d researcher_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  researcher-db-data:

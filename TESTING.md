@@ -1,6 +1,6 @@
 # Running and testing the platform locally
 
-This brings up everything built so far (auth-service, user-service, notification-service, search-service, and the gateway in front of them) with one command, using `infra/docker-compose.yml`.
+This brings up everything built so far — auth-service, user-service, notification-service, search-service, the six content-module services (journal, ebook, library, wiki, repository, researcher-network — each currently just its standalone roles/permissions slice, see `docs/01-architecture.md` §2a), and the gateway in front of all of them — with one command, using `infra/docker-compose.yml`.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ cd infra
 docker compose up --build
 ```
 
-First run takes a few minutes (pulling Postgres/Redis/RabbitMQ images and building 4 service images). Leave this running in its own terminal; add `-d` instead if you want it in the background.
+First run takes a few minutes (pulling Postgres/Redis/RabbitMQ images and building 10 service images, plus the web frontend). Leave this running in its own terminal; add `-d` instead if you want it in the background.
 
 ## 2. Run database migrations (one-time, after first startup)
 
@@ -26,6 +26,12 @@ docker compose exec auth-service npm run migrate:prod
 docker compose exec user-service npm run migrate:prod
 docker compose exec notification-service npm run migrate:prod
 docker compose exec search-service npm run migrate:prod
+docker compose exec journal-service npm run migrate:prod
+docker compose exec ebook-service npm run migrate:prod
+docker compose exec library-service npm run migrate:prod
+docker compose exec wiki-service npm run migrate:prod
+docker compose exec repository-service npm run migrate:prod
+docker compose exec researcher-service npm run migrate:prod
 ```
 
 You only need to re-run a service's migration after you pull a change that adds a new migration file.
@@ -40,6 +46,8 @@ password: ChangeMe123!
 ```
 
 This account is created directly in each service's database at startup (not through the public API), is assigned both `USER` and `ADMIN` roles in user-service, and has a matching login credential in auth-service — the two services independently derive the same user id for this email via a deterministic UUID, so no coordination between them is needed. It's idempotent: safe to leave the env vars set permanently, restart the stack as often as you like, and it will never create a duplicate or reset anything once it exists.
+
+The same `SUPER_ADMIN_EMAIL` also becomes the top local role in every content module (Journal Manager, Book Editor, Library Manager, Bureaucrat, Repository Administrator, Platform Administrator — see the table in `docs/01-architecture.md` §2a), independently seeded the same idempotent way in each of those six services. This account can therefore manage roles everywhere out of the box, without any manual role-assignment step.
 
 Log in at http://localhost:3000/login with the credentials above to reach the admin-only pages: `/admin/users` (search/manage all users) and `/admin/roles` (roles reference).
 
@@ -57,6 +65,12 @@ Everything is now reachable in your browser:
 | User Service Swagger UI | http://localhost:4002/api-docs |
 | Notification Service Swagger UI | http://localhost:4009/api-docs |
 | Search Service Swagger UI | http://localhost:4010/api-docs |
+| Researcher Network Service Swagger UI | http://localhost:4003/api-docs |
+| Repository Service Swagger UI | http://localhost:4004/api-docs |
+| Journal Service Swagger UI | http://localhost:4005/api-docs |
+| Ebook Service Swagger UI | http://localhost:4006/api-docs |
+| Library Service Swagger UI | http://localhost:4007/api-docs |
+| Wiki Service Swagger UI | http://localhost:4008/api-docs |
 | RabbitMQ management UI (guest/guest) | http://localhost:15672 |
 
 Swagger UI is fully interactive — click "Try it out" on any endpoint, fill in the body, and execute it right from the browser. This is the fastest way to test without Postman.
@@ -77,7 +91,17 @@ Swagger UI is fully interactive — click "Try it out" on any endpoint, fill in 
 
 ### Search service — a derived store, populated only by events
 
-`search-service` (`docs/01-architecture.md` §3) never originates data — it only indexes what it hears from `journal-service`, `ebook-service`, `library-service`, `repository-service`, `wiki-service`, and `researcher-service` over RabbitMQ. None of those six services exist yet in this monorepo, so its index starts empty and stays empty for now. It's fine — expected, not a bug — to spot check `GET http://localhost:4010/api-docs` and try `GET /search`, which should return a `200` with an empty paginated result: `{ "success": true, "data": [], "meta": { "total": 0, "page": 1, "pageSize": 20 } }`. Once each content service is built and starts publishing `*.published`/`*.updated`/`*.deleted` events on its own exchange, `search-service` will begin populating its index automatically, with no changes to `search-service` itself.
+`search-service` (`docs/01-architecture.md` §3) never originates data — it only indexes what it hears from `journal-service`, `ebook-service`, `library-service`, `repository-service`, `wiki-service`, and `researcher-service` over RabbitMQ. All six of those services now exist, but only as their standalone roles/permissions slice (§2a) — none of them publish content events yet (no manuscripts, books, catalog entries, wiki articles, deposits, or profiles to index), so the search index still starts empty and stays empty for now. It's fine — expected, not a bug — to spot check `GET http://localhost:4010/api-docs` and try `GET /search`, which should return a `200` with an empty paginated result: `{ "success": true, "data": [], "meta": { "total": 0, "page": 1, "pageSize": 20 } }`. Once each content service's business workflow is built and starts publishing `*.published`/`*.updated`/`*.deleted` events on its own exchange, `search-service` will begin populating its index automatically, with no changes to `search-service` itself.
+
+### The six content modules — roles/permissions only, for now
+
+Each of `journal-service` (`:4005`), `ebook-service` (`:4006`), `library-service` (`:4007`), `wiki-service` (`:4008`), `repository-service` (`:4004`), and `researcher-service` (`:4003`) currently exposes only its standalone RBAC slice: `GET /roles` (the module's role catalog), `GET/POST/DELETE` on `/members/:userId/roles` (list/assign/revoke a member's roles in that module), and `/health`/`/health/ready` — all under that service's own gateway prefix (e.g. `http://localhost:8080/api/v1/journals/roles`). Each module verifies the JWT locally and never calls another service to check permissions (see `docs/01-architecture.md` §2a for why). A quick check per module, using the super-admin token from step 3 above:
+
+```
+GET http://localhost:8080/api/v1/journals/roles
+Authorization: Bearer <accessToken>
+```
+should return the 5 seeded journal roles (`JOURNAL_MANAGER`, `EDITOR_IN_CHIEF`, `ASSOCIATE_EDITOR`, `REVIEWER`, `AUTHOR`) — and the same super-admin account already holds `JOURNAL_MANAGER` and `AUTHOR` there (and the equivalent top+base role pair in each of the other five modules) from the bootstrap seed, with no manual setup. Swap `/journals` for any other module's prefix from the table above to check its own catalog.
 
 ### Going through the gateway instead
 
@@ -92,7 +116,7 @@ The same end-to-end flow as above, but through the UI:
 1. Open http://localhost:3000 — you'll land on `/login`, which redirects to `/register` if you follow the "Create one" link.
 2. On **Register**, fill in first name, last name, email, and a password meeting the live policy hint (uppercase, lowercase, digit, special character, 8-72 chars), confirm it, and submit. This drives the same two-step flow as the manual Swagger steps above — `POST /users` in user-service, then `POST /auth/register` in auth-service, using one generated UUID for both — then redirects you to `/login` with a success message.
 3. On **Login**, sign in with that email/password. You're redirected to `/dashboard`.
-4. The dashboard shell shows an `AppBar` (with a notifications bell and unread-count badge) and a `Drawer` with links to Dashboard, Profile, and Notifications — plus greyed-out "coming soon" entries for Journals, Ebooks, Library, Researcher Network, and Wiki, since those services don't exist yet.
+4. The dashboard shell shows an `AppBar` (with a notifications bell and unread-count badge) and a `Drawer` with links to Dashboard, Profile, and Notifications — plus greyed-out "coming soon" entries for Journals, Ebooks, Library, Researcher Network, and Wiki. Those six services exist now (see the section above) but only as their roles/permissions slice — there's no content-management UI for them yet, so the frontend entries stay greyed out until each module's business workflow and UI are built.
 5. **Profile** (`/profile`) shows your real `GET /users/me` fields, with a small "Edit name" form wired to `PATCH /users/:id`.
 6. **Notifications** (`/notifications`) lists `GET /notifications` (the same welcome notifications from step 5 of the Swagger flow above), with "mark all read" and per-item mark-read actions.
 7. Refreshing the page keeps you logged in — the frontend persists only the refresh token (not the access token) to `localStorage` and silently calls `/auth/refresh` on load. Logging out (via the account menu) calls `POST /auth/logout` and clears local state.

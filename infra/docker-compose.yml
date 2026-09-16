@@ -276,6 +276,252 @@ services:
     networks: [ora-network]
 
   # ---------------------------------------------------------------------
+  # Content-module services: journal, ebook, library, wiki, repository,
+  # researcher-network. Each is a STANDALONE RBAC slice — its own database,
+  # its own module-specific role catalog (see each service's README/docs/erd.md),
+  # zero runtime dependency on user-service or auth-service or each other for
+  # authorization. Only the JWT signing secret is shared (verification-only,
+  # same contract every service already uses) and, optionally, the same
+  # SUPER_ADMIN_EMAIL so the one bootstrapped account becomes the top local
+  # role holder in every module too, not just a platform-wide admin. Business
+  # workflows (manuscript submission, book proofing, lending, wiki editing,
+  # deposits, networking) are future work — this is authorization only.
+  # ---------------------------------------------------------------------
+  journal-db:
+    image: postgres:16-alpine
+    container_name: ora-journal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: journal_service_user
+      POSTGRES_PASSWORD: journal_service_password
+      POSTGRES_DB: journal_db
+    volumes: [journal-db-data:/var/lib/postgresql/data]
+    ports: ["5437:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U journal_service_user -d journal_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  journal-service:
+    build: { context: ../services/journal-service, dockerfile: Dockerfile }
+    container_name: ora-journal-service
+    restart: unless-stopped
+    ports: ["4005:4005"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4005
+      SERVICE_NAME: journal-service
+      DB_HOST: journal-db
+      DB_PORT: 5432
+      DB_USERNAME: journal_service_user
+      DB_PASSWORD: journal_service_password
+      DB_DATABASE: journal_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      journal-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  ebook-db:
+    image: postgres:16-alpine
+    container_name: ora-ebook-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ebook_service_user
+      POSTGRES_PASSWORD: ebook_service_password
+      POSTGRES_DB: ebook_db
+    volumes: [ebook-db-data:/var/lib/postgresql/data]
+    ports: ["5438:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ebook_service_user -d ebook_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  ebook-service:
+    build: { context: ../services/ebook-service, dockerfile: Dockerfile }
+    container_name: ora-ebook-service
+    restart: unless-stopped
+    ports: ["4006:4006"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4006
+      SERVICE_NAME: ebook-service
+      DB_HOST: ebook-db
+      DB_PORT: 5432
+      DB_USERNAME: ebook_service_user
+      DB_PASSWORD: ebook_service_password
+      DB_DATABASE: ebook_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      ebook-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  library-db:
+    image: postgres:16-alpine
+    container_name: ora-library-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: library_service_user
+      POSTGRES_PASSWORD: library_service_password
+      POSTGRES_DB: library_db
+    volumes: [library-db-data:/var/lib/postgresql/data]
+    ports: ["5439:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library_service_user -d library_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  library-service:
+    build: { context: ../services/library-service, dockerfile: Dockerfile }
+    container_name: ora-library-service
+    restart: unless-stopped
+    ports: ["4007:4007"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4007
+      SERVICE_NAME: library-service
+      DB_HOST: library-db
+      DB_PORT: 5432
+      DB_USERNAME: library_service_user
+      DB_PASSWORD: library_service_password
+      DB_DATABASE: library_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      library-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  wiki-db:
+    image: postgres:16-alpine
+    container_name: ora-wiki-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wiki_service_user
+      POSTGRES_PASSWORD: wiki_service_password
+      POSTGRES_DB: wiki_db
+    volumes: [wiki-db-data:/var/lib/postgresql/data]
+    ports: ["5440:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki_service_user -d wiki_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  wiki-service:
+    build: { context: ../services/wiki-service, dockerfile: Dockerfile }
+    container_name: ora-wiki-service
+    restart: unless-stopped
+    ports: ["4008:4008"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4008
+      SERVICE_NAME: wiki-service
+      DB_HOST: wiki-db
+      DB_PORT: 5432
+      DB_USERNAME: wiki_service_user
+      DB_PASSWORD: wiki_service_password
+      DB_DATABASE: wiki_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      wiki-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  repository-db:
+    image: postgres:16-alpine
+    container_name: ora-repository-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: repository_service_user
+      POSTGRES_PASSWORD: repository_service_password
+      POSTGRES_DB: repository_db
+    volumes: [repository-db-data:/var/lib/postgresql/data]
+    ports: ["5441:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U repository_service_user -d repository_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  repository-service:
+    build: { context: ../services/repository-service, dockerfile: Dockerfile }
+    container_name: ora-repository-service
+    restart: unless-stopped
+    ports: ["4004:4004"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4004
+      SERVICE_NAME: repository-service
+      DB_HOST: repository-db
+      DB_PORT: 5432
+      DB_USERNAME: repository_service_user
+      DB_PASSWORD: repository_service_password
+      DB_DATABASE: repository_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      repository-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  researcher-db:
+    image: postgres:16-alpine
+    container_name: ora-researcher-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: researcher_service_user
+      POSTGRES_PASSWORD: researcher_service_password
+      POSTGRES_DB: researcher_db
+    volumes: [researcher-db-data:/var/lib/postgresql/data]
+    ports: ["5442:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researcher_service_user -d researcher_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  researcher-service:
+    build: { context: ../services/researcher-service, dockerfile: Dockerfile }
+    container_name: ora-researcher-service
+    restart: unless-stopped
+    ports: ["4003:4003"]
+    environment:
+      <<: *jwt-env
+      NODE_ENV: production
+      PORT: 4003
+      SERVICE_NAME: researcher-service
+      DB_HOST: researcher-db
+      DB_PORT: 5432
+      DB_USERNAME: researcher_service_user
+      DB_PASSWORD: researcher_service_password
+      DB_DATABASE: researcher_db
+      DB_SSL: "false"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
+      LOG_LEVEL: info
+    depends_on:
+      researcher-db: { condition: service_healthy }
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
   # gateway — the single entry point for testing everything above
   # ---------------------------------------------------------------------
   gateway:
@@ -299,6 +545,7 @@ services:
       EBOOK_SERVICE_URL: http://ebook-service:4006
       LIBRARY_SERVICE_URL: http://library-service:4007
       WIKI_SERVICE_URL: http://wiki-service:4008
+      # Not yet built — route registered but returns 503 until deployed.
       MONITORING_SERVICE_URL: http://monitoring-service:4011
       LOG_LEVEL: info
     depends_on:
@@ -306,6 +553,12 @@ services:
       - user-service
       - notification-service
       - search-service
+      - journal-service
+      - ebook-service
+      - library-service
+      - wiki-service
+      - repository-service
+      - researcher-service
     networks: [ora-network]
 
   # ---------------------------------------------------------------------
@@ -337,3 +590,9 @@ volumes:
   user-db-data:
   notification-db-data:
   search-db-data:
+  journal-db-data:
+  ebook-db-data:
+  library-db-data:
+  wiki-db-data:
+  repository-db-data:
+  researcher-db-data:
