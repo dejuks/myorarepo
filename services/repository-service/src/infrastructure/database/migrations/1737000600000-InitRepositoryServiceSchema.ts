@@ -39,7 +39,8 @@ export class InitRepositoryServiceSchema1737000600000 implements MigrationInterf
         ('RESEARCHER_AUTHOR', 'Individual depositing their scholarly work into the repository: uploads documents and datasets, provides complete and accurate bibliographic metadata (Dublin Core), specifies the access level (Open/Restricted).', true),
         ('REPOSITORY_CURATOR', 'Trusted staff member who manages deposits, metadata, and access policies: validates metadata quality, enriches records with controlled vocabularies, verifies copyright policies, applies access controls.', true),
         ('CONTENT_REVIEWER', 'Subject-matter expert who verifies the academic integrity of submissions: assesses academic quality and relevance, checks for plagiarism, recommends approval or revision.', true),
-        ('REPOSITORY_ADMINISTRATOR', 'Oversees the overall operations and policies of the repository: makes the final approval on all submissions, manages access control policies, generates analytics reports.', true);
+        ('REPOSITORY_ADMINISTRATOR', 'Oversees the overall operations and policies of the repository: makes the final approval on all submissions, manages access control policies, generates analytics reports including bibliographic usage statistics, manages user accounts and permissions.', true),
+        ('SYSTEM_ADMINISTRATOR', 'Manages technical infrastructure and data security for the repository: maintains system installation, backups, and security, performs updates and performance monitoring, provides technical support.', true);
     `);
   }
 

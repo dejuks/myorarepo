@@ -3,9 +3,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /**
  * Initial schema for ebook_db, plus a seed of this module's system role
  * catalog. System roles (isSystem = true) map to the eBook Publishing
- * System's SRS-defined roles: BOOK_EDITOR (top role), DIGITAL_CONTENT_MANAGER,
- * FINANCE_OPERATIONS_OFFICER, AUTHOR_RESEARCHER (base role). See docs/erd.md
- * for the standalone-RBAC decision this schema implements.
+ * System's full SRS-defined actor list: BOOK_EDITOR (top role),
+ * DIGITAL_CONTENT_MANAGER, FINANCE_OPERATIONS_OFFICER, PEER_REVIEWER,
+ * SYSTEM_ADMINISTRATOR, AUTHOR_RESEARCHER (base role), READER. See
+ * docs/erd.md for the standalone-RBAC decision this schema implements.
  */
 export class InitEbookSchema1737000600000 implements MigrationInterface {
   name = 'InitEbookSchema1737000600000';
@@ -38,9 +39,12 @@ export class InitEbookSchema1737000600000 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO roles (name, description, is_system) VALUES
         ('BOOK_EDITOR',                'Designated ORA staff member who oversees the entire book publishing workflow from submission to acceptance: performs initial manuscript screening, assigns peer reviewers, makes editorial decisions (accept/revise/reject), communicates with authors.', true),
+        ('PEER_REVIEWER',              'Subject expert providing critical evaluation of manuscripts: conducts confidential peer review, provides structured feedback, recommends accept/minor revision/major revision/reject.', true),
         ('DIGITAL_CONTENT_MANAGER',    'Technical production role responsible for creating the final eBook product: validates file quality, converts manuscripts to PDF/EPUB, uploads final eBooks, assigns metadata (ISBN, DOI), sets access permissions.', true),
         ('FINANCE_OPERATIONS_OFFICER', 'Administrative role managing the financial aspects of book publication: manages Book Processing Charge payments, validates payments, issues invoices/receipts, approves/declines fee waiver requests.', true),
-        ('AUTHOR_RESEARCHER',          'Individual submitting a manuscript for book publication: prepares and submits manuscripts with metadata, responds to peer-review feedback, approves the final proof.', true);
+        ('SYSTEM_ADMINISTRATOR',       'Manages backend infrastructure, security, and platform uptime for this module: manages user accounts and access, configures workflow automation, ensures platform security and backups, maintains eBook repository storage.', true),
+        ('AUTHOR_RESEARCHER',          'Individual submitting a manuscript for book publication: prepares and submits manuscripts with metadata, responds to peer-review feedback, approves the final proof.', true),
+        ('READER',                     'End user who searches for, views, and downloads published content: searches and discovers ORA published content, views/downloads eBooks per access rights, cites and shares content within license limits.', true);
     `);
   }
 

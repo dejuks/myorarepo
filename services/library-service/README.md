@@ -30,12 +30,19 @@ npm run test:cov
 
 | Role | Notes |
 | --- | --- |
-| `LIBRARY_MANAGER` | Top role — oversees all library operations; the only role that can create/delete custom roles and assign/revoke roles for other members. |
+| `LIBRARY_MANAGER` | Top role — oversees all library operations, staff, and policies for both digital and physical collections; the only role that can create/delete custom roles and assign/revoke roles for other members. |
+| `ADMIN` | Digital-library system configuration and access-control role: creates/manages users, assigns roles/permissions, configures system settings, approves content uploads. |
+| `SYSTEM_ADMINISTRATOR` | Maintains the library management software and backend systems: user accounts/permissions, hardware/software maintenance, backups and security. |
 | `DIGITAL_LIBRARIAN` | Manages the digital resources within the library system. |
 | `LIBRARIAN` | Manages day-to-day services for the physical library. |
+| `ACQUISITION_OFFICER` | Handles procurement and processing of physical books and materials: ordering, vendor relations, receiving deliveries. |
 | `CATALOGER` | Classifies and catalogs physical materials for retrieval. |
 | `INVENTORY_MANAGER` | Maintains the physical inventory and performs audits. |
+| `CONTENT_UPLOADER` | Optional role (e.g. teachers/assistants) submitting digital content for approval. |
+| `EXTERNAL_PUBLISHER` | Optional role for external providers supplying licensed or subscribed content. |
 | `MEMBER` | Base role — end-user of the library services, auto-assigned to the bootstrapped super-admin alongside `LIBRARY_MANAGER`. |
+
+This module covers both the Digital and Physical Library Management sub-systems from the SRS in one service/database — `ADMIN` and `SYSTEM_ADMINISTRATOR` overlap in practice (both are system-configuration roles, one named per SRS sub-system) and are kept as distinct seeded roles for fidelity to the source document.
 
 All six are seeded as `is_system = true` (not deletable through the API) by the initial migration.
 

@@ -13,9 +13,12 @@ Following the platform's role-only authorization model (see `services/user-servi
 | Role | Description |
 | --- | --- |
 | `BOOK_EDITOR` (**top role**) | Designated ORA staff member who oversees the entire book publishing workflow from submission to acceptance: performs initial manuscript screening, assigns peer reviewers, makes editorial decisions (accept/revise/reject), communicates with authors. The only role allowed to create/delete custom roles and assign/revoke roles for other members. |
+| `PEER_REVIEWER` | Subject expert providing critical evaluation of manuscripts: conducts confidential peer review, provides structured feedback, recommends accept/minor revision/major revision/reject. |
 | `DIGITAL_CONTENT_MANAGER` | Technical production role responsible for creating the final eBook product: validates file quality, converts manuscripts to PDF/EPUB, uploads final eBooks, assigns metadata (ISBN, DOI), sets access permissions. |
 | `FINANCE_OPERATIONS_OFFICER` | Administrative role managing the financial aspects of book publication: manages Book Processing Charge payments, validates payments, issues invoices/receipts, approves/declines fee waiver requests. |
+| `SYSTEM_ADMINISTRATOR` | Manages backend infrastructure, security, and platform uptime for this module: manages user accounts and access, configures workflow automation, ensures platform security and backups, maintains eBook repository storage. |
 | `AUTHOR_RESEARCHER` (**base role**) | Individual submitting a manuscript for book publication: prepares and submits manuscripts with metadata, responds to peer-review feedback, approves the final proof. Assigned automatically alongside `BOOK_EDITOR` when the platform super-admin is bootstrapped. |
+| `READER` | End user who searches for, views, and downloads published content: searches/discovers ORA published content, views/downloads eBooks per access rights, cites and shares content within license limits. |
 
 All four are seeded as `is_system = true` rows in the initial migration and cannot be deleted through the API.
 

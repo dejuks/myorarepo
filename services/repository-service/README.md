@@ -14,6 +14,7 @@ This module owns its role catalog (`roles`) and member-to-role assignment (`user
 | `REPOSITORY_CURATOR` | Trusted staff member who manages deposits, metadata, and access policies: validates metadata quality, enriches records with controlled vocabularies, verifies copyright policies, applies access controls. |
 | `CONTENT_REVIEWER` | Subject-matter expert who verifies the academic integrity of submissions: assesses academic quality and relevance, checks for plagiarism, recommends approval or revision. |
 | `REPOSITORY_ADMINISTRATOR` (top role) | Oversees the overall operations and policies of the repository: makes the final approval on all submissions, manages access control policies, generates analytics reports. Only role allowed to create/delete custom roles and assign/revoke roles for other members. |
+| `SYSTEM_ADMINISTRATOR` | Manages technical infrastructure and data security for the repository: system installation, backups, security, updates, performance monitoring, technical support. |
 
 All four are seeded as `is_system = true` by the initial migration and cannot be deleted through the API.
 

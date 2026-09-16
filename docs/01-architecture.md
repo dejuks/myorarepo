@@ -34,11 +34,13 @@ Each content module (`researcher-service`, `repository-service`, `journal-servic
 | Module | Roles (seeded, `is_system = true`) | Local "admin" role (manages this module's roles) |
 |---|---|---|
 | `journal-service` | JOURNAL_MANAGER, EDITOR_IN_CHIEF, ASSOCIATE_EDITOR, REVIEWER, AUTHOR | JOURNAL_MANAGER |
-| `ebook-service` | BOOK_EDITOR, DIGITAL_CONTENT_MANAGER, FINANCE_OPERATIONS_OFFICER, AUTHOR_RESEARCHER | BOOK_EDITOR |
-| `library-service` | LIBRARY_MANAGER, DIGITAL_LIBRARIAN, LIBRARIAN, CATALOGER, INVENTORY_MANAGER, MEMBER | LIBRARY_MANAGER |
+| `ebook-service` | BOOK_EDITOR, PEER_REVIEWER, DIGITAL_CONTENT_MANAGER, FINANCE_OPERATIONS_OFFICER, SYSTEM_ADMINISTRATOR, AUTHOR_RESEARCHER, READER | BOOK_EDITOR |
+| `library-service` | LIBRARY_MANAGER, ADMIN, SYSTEM_ADMINISTRATOR, DIGITAL_LIBRARIAN, LIBRARIAN, ACQUISITION_OFFICER, CATALOGER, INVENTORY_MANAGER, CONTENT_UPLOADER, EXTERNAL_PUBLISHER, MEMBER | LIBRARY_MANAGER |
 | `wiki-service` | REGISTERED_EDITOR, ADMINISTRATOR, BUREAUCRAT, OVERSIGHTER | BUREAUCRAT |
-| `repository-service` | RESEARCHER_AUTHOR, REPOSITORY_CURATOR, CONTENT_REVIEWER, REPOSITORY_ADMINISTRATOR | REPOSITORY_ADMINISTRATOR |
+| `repository-service` | RESEARCHER_AUTHOR, REPOSITORY_CURATOR, CONTENT_REVIEWER, REPOSITORY_ADMINISTRATOR, SYSTEM_ADMINISTRATOR | REPOSITORY_ADMINISTRATOR |
 | `researcher-service` | RESEARCHER_MEMBER, GROUP_MODERATOR, EVENT_CONTENT_MANAGER, PLATFORM_ADMINISTRATOR | PLATFORM_ADMINISTRATOR |
+
+Each catalog above is the module's full role list per the platform's detailed SRS role/workflow breakdown (one table per module, e.g. eBook Publishing System's 7 actors, the Library Management System's combined Digital + Physical sub-system actors). The top/base roles used by the bootstrap seed (§ above) are unchanged by this — only the catalog each module seeds grew to match the source document in full; which two roles the bootstrap assigns did not change.
 
 The same chicken-and-egg problem `auth-service`/`user-service` solved for the platform-wide ADMIN role (see `services/auth-service/README.md`) recurs once per module: the very first person able to assign a module's roles needs one already assigned by someone. Each module solves it the same way — an idempotent, env-var-gated startup seed (`infrastructure/bootstrap/module-admin.bootstrap.ts`) that assigns the platform's `SUPER_ADMIN_EMAIL` account both the module's base role and its local "admin" role, using the same deterministic UUID v5 derivation (`common/utils/bootstrap-id.util.ts`, byte-identical across all eight services that have a copy) so it lands on the same `userId` as the platform-wide seed, with zero cross-service coordination.
 
