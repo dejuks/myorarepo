@@ -8,4 +8,6 @@ export const queryKeys = {
   users: (params: ListUsersParams) => ['users', params] as const,
   user: (id: string) => ['users', 'detail', id] as const,
   roles: ['roles'] as const,
+  moduleRoles: (moduleKey: string) => ['module-roles', moduleKey] as const,
+  moduleMemberRoles: (moduleKey: string, userId: string) => ['module-member-roles', moduleKey, userId] as const,
 };

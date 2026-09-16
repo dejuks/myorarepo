@@ -14,6 +14,7 @@ import { NotificationsPage } from '@/pages/NotificationsPage';
 import { AdminUsersPage } from '@/pages/AdminUsersPage';
 import { AdminUserDetailPage } from '@/pages/AdminUserDetailPage';
 import { AdminRolesPage } from '@/pages/AdminRolesPage';
+import { ModuleRolesPage } from '@/pages/ModuleRolesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function App() {
@@ -40,6 +41,7 @@ export function App() {
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
             <Route path="/admin/roles" element={<AdminRolesPage />} />
+            <Route path="/admin/modules/:moduleKey" element={<ModuleRolesPage />} />
           </Route>
         </Route>
       </Route>

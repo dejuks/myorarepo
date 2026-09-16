@@ -35,6 +35,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { logout as logoutRequest } from '@/api/authApi';
 import { loggedOut } from '@/features/auth/authSlice';
+import { MODULES } from '@/config/modules';
 
 const DRAWER_WIDTH = 240;
 
@@ -56,13 +57,27 @@ const adminNavItems: NavItem[] = [
   { label: 'Roles', to: '/admin/roles', icon: <AdminPanelSettingsIcon /> },
 ];
 
-const comingSoonNavItems: NavItem[] = [
-  { label: 'Journals', to: '#', icon: <ArticleIcon />, disabled: true },
-  { label: 'Ebooks', to: '#', icon: <MenuBookIcon />, disabled: true },
-  { label: 'Library', to: '#', icon: <AutoStoriesIcon />, disabled: true },
-  { label: 'Researcher Network', to: '#', icon: <GroupsIcon />, disabled: true },
-  { label: 'Wiki', to: '#', icon: <LocalLibraryIcon />, disabled: true },
-];
+const moduleIcons: Record<string, ReactNode> = {
+  journal: <ArticleIcon />,
+  ebook: <MenuBookIcon />,
+  library: <AutoStoriesIcon />,
+  researcher: <GroupsIcon />,
+  wiki: <LocalLibraryIcon />,
+  repository: <MenuBookIcon />,
+};
+
+/**
+ * Each module's own roles/permissions dashboard (see docs/01-architecture.md
+ * §2a) — this is the "coming soon" section's replacement now that those six
+ * services exist. They're not full content-management UIs yet (no manuscript
+ * submission, cataloging, etc. — just each module's standalone RBAC), so the
+ * label makes that explicit rather than implying more than what's there.
+ */
+const moduleNavItems: NavItem[] = MODULES.map((mod) => ({
+  label: `${mod.label} — Roles`,
+  to: `/admin/modules/${mod.key}`,
+  icon: moduleIcons[mod.key] ?? <ArticleIcon />,
+}));
 
 export function DashboardLayout() {
   const dispatch = useAppDispatch();
@@ -185,25 +200,35 @@ export function DashboardLayout() {
               </List>
             </>
           )}
-          <Divider />
-          <List
-            subheader={
-              <Typography variant="overline" color="text.secondary" sx={{ pl: 2, display: 'block', pt: 1 }}>
-                Coming soon
-              </Typography>
-            }
-          >
-            {comingSoonNavItems.map((item) => (
-              <Tooltip key={item.label} title="Not available yet" placement="right">
-                <span>
-                  <ListItemButton disabled>
+          {isAdmin && (
+            <>
+              <Divider />
+              <List
+                subheader={
+                  <Tooltip
+                    title="Each module manages its own roles independently — see docs/01-architecture.md §2a. Content management (submissions, cataloging, etc.) isn't built yet."
+                    placement="right"
+                  >
+                    <Typography variant="overline" color="text.secondary" sx={{ pl: 2, display: 'block', pt: 1 }}>
+                      Module roles
+                    </Typography>
+                  </Tooltip>
+                }
+              >
+                {moduleNavItems.map((item) => (
+                  <ListItemButton
+                    key={item.to}
+                    component={RouterLink}
+                    to={item.to}
+                    selected={location.pathname === item.to}
+                  >
                     <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.label} />
                   </ListItemButton>
-                </span>
-              </Tooltip>
-            ))}
-          </List>
+                ))}
+              </List>
+            </>
+          )}
         </Box>
       </Drawer>
 
