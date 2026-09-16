@@ -1,0 +1,79 @@
+
+services:
+  search-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ora/search-service:latest
+    container_name: ora-search-service
+    restart: unless-stopped
+    ports:
+      - "4010:4010"
+    environment:
+      NODE_ENV: production
+      PORT: 4010
+      SERVICE_NAME: search-service
+      DB_HOST: search-db
+      DB_PORT: 5432
+      DB_USERNAME: search_service_user
+      DB_PASSWORD: search_service_password
+      DB_DATABASE: search_db
+      DB_SSL: "false"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.search.events
+      JOURNAL_EXCHANGE: ora.journal.events
+      EBOOK_EXCHANGE: ora.ebook.events
+      LIBRARY_EXCHANGE: ora.library.events
+      REPOSITORY_EXCHANGE: ora.repository.events
+      WIKI_EXCHANGE: ora.wiki.events
+      RESEARCHER_EXCHANGE: ora.researcher.events
+      LOG_LEVEL: info
+    depends_on:
+      search-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ora-network
+
+  search-db:
+    image: postgres:16-alpine
+    container_name: ora-search-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: search_service_user
+      POSTGRES_PASSWORD: search_service_password
+      POSTGRES_DB: search_db
+    volumes:
+      - search-db-data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U search_service_user -d search_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ora-search-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5675:5672"
+      - "15675:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ora-network
+
+networks:
+  ora-network:
+    driver: bridge
+
+volumes:
+  search-db-data:

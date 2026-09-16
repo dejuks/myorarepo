@@ -31,7 +31,7 @@ export const serviceRoutes: ServiceRoute[] = [
   { pathPrefix: '/api/v1/library', target: env.LIBRARY_SERVICE_URL, serviceName: 'library-service', requiresAuth: true, implemented: false },
   { pathPrefix: '/api/v1/wiki', target: env.WIKI_SERVICE_URL, serviceName: 'wiki-service', requiresAuth: false, implemented: false },
   { pathPrefix: '/api/v1/notifications', target: env.NOTIFICATION_SERVICE_URL, serviceName: 'notification-service', requiresAuth: true, implemented: false },
-  { pathPrefix: '/api/v1/search', target: env.SEARCH_SERVICE_URL, serviceName: 'search-service', requiresAuth: false, implemented: false },
+  { pathPrefix: '/api/v1/search', target: env.SEARCH_SERVICE_URL, serviceName: 'search-service', requiresAuth: false, implemented: true },
   { pathPrefix: '/api/v1/monitoring', target: env.MONITORING_SERVICE_URL, serviceName: 'monitoring-service', requiresAuth: true, implemented: false },
 ];
 

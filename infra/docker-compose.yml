@@ -12,6 +12,7 @@
 #   http://localhost:4001/api-docs       -> auth-service Swagger UI
 #   http://localhost:4002/api-docs       -> user-service Swagger UI
 #   http://localhost:4009/api-docs       -> notification-service Swagger UI
+#   http://localhost:4010/api-docs       -> search-service Swagger UI
 #
 # All business traffic should go through the gateway on :8080 (e.g.
 # POST http://localhost:8080/api/v1/auth/register), which is what a real
@@ -199,6 +200,62 @@ services:
     networks: [ora-network]
 
   # ---------------------------------------------------------------------
+  # search-service + its database
+  # search-service is a derived store — it never originates data, it
+  # subscribes to *.published/*.updated/*.deleted events from every content
+  # service and maintains its own Postgres full-text index (see
+  # docs/01-architecture.md §3 and services/search-service/docs/erd.md).
+  # None of the six content services it consumes from exist yet; the
+  # *_EXCHANGE vars below are reserved so it starts indexing automatically,
+  # with zero changes, the moment each one is built.
+  # ---------------------------------------------------------------------
+  search-db:
+    image: postgres:16-alpine
+    container_name: ora-search-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: search_service_user
+      POSTGRES_PASSWORD: search_service_password
+      POSTGRES_DB: search_db
+    volumes: [search-db-data:/var/lib/postgresql/data]
+    ports: ["5436:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U search_service_user -d search_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ora-network]
+
+  search-service:
+    build: { context: ../services/search-service, dockerfile: Dockerfile }
+    container_name: ora-search-service
+    restart: unless-stopped
+    ports: ["4010:4010"]
+    environment:
+      NODE_ENV: production
+      PORT: 4010
+      SERVICE_NAME: search-service
+      DB_HOST: search-db
+      DB_PORT: 5432
+      DB_USERNAME: search_service_user
+      DB_PASSWORD: search_service_password
+      DB_DATABASE: search_db
+      DB_SSL: "false"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ora.search.events
+      JOURNAL_EXCHANGE: ora.journal.events
+      EBOOK_EXCHANGE: ora.ebook.events
+      LIBRARY_EXCHANGE: ora.library.events
+      REPOSITORY_EXCHANGE: ora.repository.events
+      WIKI_EXCHANGE: ora.wiki.events
+      RESEARCHER_EXCHANGE: ora.researcher.events
+      LOG_LEVEL: info
+    depends_on:
+      search-db: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
   # gateway — the single entry point for testing everything above
   # ---------------------------------------------------------------------
   gateway:
@@ -214,6 +271,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:4001
       USER_SERVICE_URL: http://user-service:4002
       NOTIFICATION_SERVICE_URL: http://notification-service:4009
+      SEARCH_SERVICE_URL: http://search-service:4010
       # Not yet built — routes registered but return 503 until deployed (see service-registry.ts).
       RESEARCHER_SERVICE_URL: http://researcher-service:4003
       REPOSITORY_SERVICE_URL: http://repository-service:4004
@@ -221,13 +279,13 @@ services:
       EBOOK_SERVICE_URL: http://ebook-service:4006
       LIBRARY_SERVICE_URL: http://library-service:4007
       WIKI_SERVICE_URL: http://wiki-service:4008
-      SEARCH_SERVICE_URL: http://search-service:4010
       MONITORING_SERVICE_URL: http://monitoring-service:4011
       LOG_LEVEL: info
     depends_on:
       - auth-service
       - user-service
       - notification-service
+      - search-service
     networks: [ora-network]
 
 networks:
@@ -238,3 +296,4 @@ volumes:
   auth-db-data:
   user-db-data:
   notification-db-data:
+  search-db-data:

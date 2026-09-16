@@ -1,6 +1,6 @@
 # Running and testing the platform locally
 
-This brings up everything built so far (auth-service, user-service, notification-service, and the gateway in front of them) with one command, using `infra/docker-compose.yml`.
+This brings up everything built so far (auth-service, user-service, notification-service, search-service, and the gateway in front of them) with one command, using `infra/docker-compose.yml`.
 
 ## Prerequisites
 
@@ -25,6 +25,7 @@ Each service owns its own database and migrations, run once the containers are h
 docker compose exec auth-service npm run migrate:prod
 docker compose exec user-service npm run migrate:prod
 docker compose exec notification-service npm run migrate:prod
+docker compose exec search-service npm run migrate:prod
 ```
 
 You only need to re-run a service's migration after you pull a change that adds a new migration file.
@@ -39,6 +40,7 @@ Everything is now reachable in your browser:
 | Auth Service Swagger UI | http://localhost:4001/api-docs |
 | User Service Swagger UI | http://localhost:4002/api-docs |
 | Notification Service Swagger UI | http://localhost:4009/api-docs |
+| Search Service Swagger UI | http://localhost:4010/api-docs |
 | RabbitMQ management UI (guest/guest) | http://localhost:15672 |
 
 Swagger UI is fully interactive — click "Try it out" on any endpoint, fill in the body, and execute it right from the browser. This is the fastest way to test without Postman.
@@ -56,6 +58,10 @@ Swagger UI is fully interactive — click "Try it out" on any endpoint, fill in 
 3. Still in auth-service, call `POST /auth/login` with the same email/password — you'll get back an `accessToken`.
 4. Copy that token, click the **Authorize** button (top right of Swagger UI) in user-service or notification-service, paste it as `Bearer <token>`, and try `GET /users/me` or `GET /notifications` — both now work as "you".
 5. Check the **notification-service** logs (`docker compose logs -f notification-service`) — you should see it logged a "Welcome" email (via the console email provider) and an in-app notification, both triggered automatically by the `auth.registered` and `user.registered` events you just caused.
+
+### Search service — a derived store, populated only by events
+
+`search-service` (`docs/01-architecture.md` §3) never originates data — it only indexes what it hears from `journal-service`, `ebook-service`, `library-service`, `repository-service`, `wiki-service`, and `researcher-service` over RabbitMQ. None of those six services exist yet in this monorepo, so its index starts empty and stays empty for now. It's fine — expected, not a bug — to spot check `GET http://localhost:4010/api-docs` and try `GET /search`, which should return a `200` with an empty paginated result: `{ "success": true, "data": [], "meta": { "total": 0, "page": 1, "pageSize": 20 } }`. Once each content service is built and starts publishing `*.published`/`*.updated`/`*.deleted` events on its own exchange, `search-service` will begin populating its index automatically, with no changes to `search-service` itself.
 
 ### Going through the gateway instead
 
