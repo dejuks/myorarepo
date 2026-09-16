@@ -20,7 +20,7 @@ export interface GatewayRequest extends Request {
 export function authVerifyMiddleware(req: GatewayRequest, _res: Response, next: NextFunction): void {
   const route = findRoute(req.path);
 
-  const needsAuth = route ? route.requiresAuth && !isPublicOverride(req.path) : false;
+  const needsAuth = route ? route.requiresAuth && !isPublicOverride(req.method, req.path) : false;
   if (!needsAuth) return next();
 
   const header = req.headers.authorization;

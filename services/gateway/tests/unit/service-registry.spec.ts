@@ -21,12 +21,28 @@ describe('service-registry', () => {
   });
 
   describe('isPublicOverride', () => {
-    it('treats /auth/login as public even though /auth requires no blanket auth already', () => {
-      expect(isPublicOverride('/api/v1/auth/login')).toBe(true);
+    it('treats POST /auth/login as public even though /auth requires no blanket auth already', () => {
+      expect(isPublicOverride('POST', '/api/v1/auth/login')).toBe(true);
     });
 
     it('treats an unrelated auth path as not publicly overridden', () => {
-      expect(isPublicOverride('/api/v1/auth/mfa/enroll')).toBe(false);
+      expect(isPublicOverride('POST', '/api/v1/auth/mfa/enroll')).toBe(false);
+    });
+
+    it('treats POST /auth/password-reset/request as public via matchPrefix', () => {
+      expect(isPublicOverride('POST', '/api/v1/auth/password-reset/request')).toBe(true);
+    });
+
+    it('treats POST /users as public — account creation happens before login', () => {
+      expect(isPublicOverride('POST', '/api/v1/users')).toBe(true);
+    });
+
+    it('does NOT treat GET /users as public even though it shares a path with the public POST', () => {
+      expect(isPublicOverride('GET', '/api/v1/users')).toBe(false);
+    });
+
+    it('does NOT treat PATCH /users/:id as public via prefix leakage from the POST /users override', () => {
+      expect(isPublicOverride('PATCH', '/api/v1/users/some-id')).toBe(false);
     });
   });
 

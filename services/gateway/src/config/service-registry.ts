@@ -30,23 +30,46 @@ export const serviceRoutes: ServiceRoute[] = [
   { pathPrefix: '/api/v1/ebooks', target: env.EBOOK_SERVICE_URL, serviceName: 'ebook-service', requiresAuth: true, implemented: false },
   { pathPrefix: '/api/v1/library', target: env.LIBRARY_SERVICE_URL, serviceName: 'library-service', requiresAuth: true, implemented: false },
   { pathPrefix: '/api/v1/wiki', target: env.WIKI_SERVICE_URL, serviceName: 'wiki-service', requiresAuth: false, implemented: false },
-  { pathPrefix: '/api/v1/notifications', target: env.NOTIFICATION_SERVICE_URL, serviceName: 'notification-service', requiresAuth: true, implemented: false },
+  { pathPrefix: '/api/v1/notifications', target: env.NOTIFICATION_SERVICE_URL, serviceName: 'notification-service', requiresAuth: true, implemented: true },
   { pathPrefix: '/api/v1/search', target: env.SEARCH_SERVICE_URL, serviceName: 'search-service', requiresAuth: false, implemented: true },
   { pathPrefix: '/api/v1/monitoring', target: env.MONITORING_SERVICE_URL, serviceName: 'monitoring-service', requiresAuth: true, implemented: false },
 ];
 
-/** Endpoints under an authenticated prefix that are nonetheless public (e.g. registration lives under /auth but has no token yet). Matched as exact-or-prefix against the incoming path. */
-export const publicOverrides: string[] = [
-  '/api/v1/auth/register',
-  '/api/v1/auth/login',
-  '/api/v1/auth/refresh',
-  '/api/v1/auth/password-reset',
+export interface PublicOverride {
+  /** HTTP method this override applies to — overrides are method-specific, never blanket-public for a path. */
+  method: string;
+  path: string;
+  /** If true, also matches sub-paths of `path` (e.g. /auth/password-reset/request, /confirm). Default: exact match only. */
+  matchPrefix?: boolean;
+}
+
+/**
+ * Endpoints under an authenticated route prefix that are nonetheless
+ * public. Method-specific and exact-path-by-default on purpose: some
+ * paths are shared by a public and a protected action (e.g.
+ * `POST /api/v1/users` creates an account pre-login and must be public,
+ * while `GET /api/v1/users` on the exact same path lists all users and is
+ * admin-only — matching on path alone would have made both public).
+ */
+export const publicOverrides: PublicOverride[] = [
+  { method: 'POST', path: '/api/v1/auth/register' },
+  { method: 'POST', path: '/api/v1/auth/login' },
+  { method: 'POST', path: '/api/v1/auth/refresh' },
+  { method: 'POST', path: '/api/v1/auth/password-reset', matchPrefix: true },
+  // Account creation happens before the caller has any token — the same
+  // /api/v1/users path also serves GET (admin list, requiresAuth) and
+  // PATCH (self/admin update, requiresAuth), so this MUST stay exact-match
+  // and POST-only, never matchPrefix, or it would also expose those.
+  { method: 'POST', path: '/api/v1/users' },
 ];
 
 export function findRoute(path: string): ServiceRoute | undefined {
   return serviceRoutes.find((r) => path === r.pathPrefix || path.startsWith(`${r.pathPrefix}/`));
 }
 
-export function isPublicOverride(path: string): boolean {
-  return publicOverrides.some((p) => path === p || path.startsWith(`${p}/`));
+export function isPublicOverride(method: string, path: string): boolean {
+  return publicOverrides.some((o) => {
+    if (o.method !== method) return false;
+    return o.matchPrefix ? path === o.path || path.startsWith(`${o.path}/`) : path === o.path;
+  });
 }
