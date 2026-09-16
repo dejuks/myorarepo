@@ -50,3 +50,12 @@ export function requestPasswordReset(email: string): Promise<void> {
 export function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
   return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/password-reset/confirm', { token, newPassword }));
 }
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export function changePassword(payload: ChangePasswordPayload): Promise<void> {
+  return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/change-password', payload));
+}

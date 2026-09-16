@@ -20,6 +20,17 @@ export interface User {
   deactivatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Live join from user-service (not a JWT claim) — always current, see UserWithRoles on the backend. */
+  roles: string[];
+}
+
+/** Mirrors services/user-service/src/domain/entities/role.entity.ts */
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  createdAt: string;
 }
 
 /** Mirrors services/auth-service/src/application/dto/auth-response.dto.ts */

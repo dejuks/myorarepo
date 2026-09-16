@@ -27,9 +27,12 @@ import LocalLibraryIcon from '@mui/icons-material/LocalLibraryOutlined';
 import GroupsIcon from '@mui/icons-material/GroupsOutlined';
 import ArticleIcon from '@mui/icons-material/ArticleOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
+import PeopleAltIcon from '@mui/icons-material/PeopleAltOutlined';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { logout as logoutRequest } from '@/api/authApi';
 import { loggedOut } from '@/features/auth/authSlice';
 
@@ -48,6 +51,11 @@ const primaryNavItems: NavItem[] = [
   { label: 'Notifications', to: '/notifications', icon: <NotificationsIcon /> },
 ];
 
+const adminNavItems: NavItem[] = [
+  { label: 'Users', to: '/admin/users', icon: <PeopleAltIcon /> },
+  { label: 'Roles', to: '/admin/roles', icon: <AdminPanelSettingsIcon /> },
+];
+
 const comingSoonNavItems: NavItem[] = [
   { label: 'Journals', to: '#', icon: <ArticleIcon />, disabled: true },
   { label: 'Ebooks', to: '#', icon: <MenuBookIcon />, disabled: true },
@@ -64,6 +72,7 @@ export function DashboardLayout() {
   const refreshToken = useAppSelector((state) => state.auth.refreshToken);
   const { data: unreadCount } = useUnreadCount();
   const { data: currentUser } = useCurrentUser();
+  const isAdmin = useIsAdmin();
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
@@ -152,6 +161,30 @@ export function DashboardLayout() {
               </ListItemButton>
             ))}
           </List>
+          {isAdmin && (
+            <>
+              <Divider />
+              <List
+                subheader={
+                  <Typography variant="overline" color="text.secondary" sx={{ pl: 2, display: 'block', pt: 1 }}>
+                    Administration
+                  </Typography>
+                }
+              >
+                {adminNavItems.map((item) => (
+                  <ListItemButton
+                    key={item.to}
+                    component={RouterLink}
+                    to={item.to}
+                    selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
+                  >
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                ))}
+              </List>
+            </>
+          )}
           <Divider />
           <List
             subheader={

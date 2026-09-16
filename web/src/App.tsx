@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthBootstrap } from '@/features/auth/useAuthBootstrap';
 import { PublicRoute } from '@/routes/PublicRoute';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { AdminRoute } from '@/routes/AdminRoute';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -10,6 +11,9 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
+import { AdminUsersPage } from '@/pages/AdminUsersPage';
+import { AdminUserDetailPage } from '@/pages/AdminUserDetailPage';
+import { AdminRolesPage } from '@/pages/AdminRolesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function App() {
@@ -31,6 +35,12 @@ export function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+            <Route path="/admin/roles" element={<AdminRolesPage />} />
+          </Route>
         </Route>
       </Route>
 

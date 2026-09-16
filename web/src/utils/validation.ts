@@ -41,3 +41,18 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function isValidEmail(email: string): boolean {
   return EMAIL_REGEX.test(email);
 }
+
+/** Mirrors the backend policy in CreateRoleDto (class-validator @Matches). */
+export const ROLE_NAME_REGEX = /^[A-Za-z_]+$/;
+export const ROLE_NAME_MIN_LENGTH = 2;
+export const ROLE_NAME_MAX_LENGTH = 50;
+
+export function isValidRoleName(name: string): boolean {
+  return (
+    name.length >= ROLE_NAME_MIN_LENGTH && name.length <= ROLE_NAME_MAX_LENGTH && ROLE_NAME_REGEX.test(name)
+  );
+}
+
+export function roleNameMessage(): string {
+  return 'Role name must be 2-50 characters and contain only letters and underscores.';
+}

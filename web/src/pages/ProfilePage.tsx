@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Paper from '@mui/material/Paper';
@@ -13,6 +14,8 @@ import Typography from '@mui/material/Typography';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { updateProfile } from '@/api/userApi';
 import { queryKeys } from '@/api/queryKeys';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
+import { userStatusChipColor } from '@/utils/userStatus';
 import type { ApiErrorInfo } from '@/types/api';
 
 function formatDate(iso: string): string {
@@ -23,27 +26,76 @@ function formatDate(iso: string): string {
   }
 }
 
+interface ProfileFormState {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  bio: string;
+  phone: string;
+  locale: string;
+  avatarUrl: string;
+}
+
+const EMPTY_FORM: ProfileFormState = {
+  firstName: '',
+  lastName: '',
+  displayName: '',
+  bio: '',
+  phone: '',
+  locale: '',
+  avatarUrl: '',
+};
+
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function ProfilePage() {
   const { data: currentUser, isLoading, isError } = useCurrentUser();
   const queryClient = useQueryClient();
 
   const [editing, setEditing] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [form, setForm] = useState<ProfileFormState>(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      setFirstName(currentUser.firstName);
-      setLastName(currentUser.lastName);
+      setForm({
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        displayName: currentUser.displayName ?? '',
+        bio: currentUser.bio ?? '',
+        phone: currentUser.phone ?? '',
+        locale: currentUser.locale ?? '',
+        avatarUrl: currentUser.avatarUrl ?? '',
+      });
     }
   }, [currentUser]);
+
+  function updateField<K extends keyof ProfileFormState>(field: K, value: ProfileFormState[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
   const mutation = useMutation({
     mutationFn: () => {
       if (!currentUser) throw new Error('No profile loaded yet');
-      return updateProfile(currentUser.id, { firstName: firstName.trim(), lastName: lastName.trim() });
+      return updateProfile(currentUser.id, {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        displayName: form.displayName.trim() || undefined,
+        bio: form.bio.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        locale: form.locale.trim() || undefined,
+        avatarUrl: form.avatarUrl.trim() || undefined,
+      });
     },
     onSuccess: () => {
       setSaveSuccess(true);
@@ -59,12 +111,33 @@ export function ProfilePage() {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSaveError(null);
+    setFormError(null);
     setSaveSuccess(false);
-    if (!firstName.trim() || !lastName.trim()) {
-      setSaveError('First and last name cannot be empty.');
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setFormError('First and last name cannot be empty.');
+      return;
+    }
+    if (form.avatarUrl.trim() && !isValidUrl(form.avatarUrl.trim())) {
+      setFormError('Avatar URL must be a valid URL.');
       return;
     }
     mutation.mutate();
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setFormError(null);
+    if (currentUser) {
+      setForm({
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        displayName: currentUser.displayName ?? '',
+        bio: currentUser.bio ?? '',
+        phone: currentUser.phone ?? '',
+        locale: currentUser.locale ?? '',
+        avatarUrl: currentUser.avatarUrl ?? '',
+      });
+    }
   }
 
   if (isLoading) {
@@ -96,39 +169,68 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
         {editing ? (
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <Stack spacing={2}>
+              {formError && <Alert severity="error">{formError}</Alert>}
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   label="First name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  value={form.firstName}
+                  onChange={(e) => updateField('firstName', e.target.value)}
                   required
                   fullWidth
                 />
                 <TextField
                   label="Last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  value={form.lastName}
+                  onChange={(e) => updateField('lastName', e.target.value)}
                   required
                   fullWidth
                 />
               </Stack>
+              <TextField
+                label="Display name"
+                value={form.displayName}
+                onChange={(e) => updateField('displayName', e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Bio"
+                value={form.bio}
+                onChange={(e) => updateField('bio', e.target.value)}
+                multiline
+                minRows={2}
+                fullWidth
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Locale"
+                  value={form.locale}
+                  onChange={(e) => updateField('locale', e.target.value)}
+                  placeholder="en"
+                  fullWidth
+                />
+              </Stack>
+              <TextField
+                label="Avatar URL"
+                value={form.avatarUrl}
+                onChange={(e) => updateField('avatarUrl', e.target.value)}
+                placeholder="https://example.com/avatar.png"
+                fullWidth
+              />
               <Stack direction="row" spacing={2}>
                 <Button type="submit" variant="contained" disabled={mutation.isPending}>
                   {mutation.isPending ? 'Saving…' : 'Save'}
                 </Button>
-                <Button
-                  variant="text"
-                  disabled={mutation.isPending}
-                  onClick={() => {
-                    setEditing(false);
-                    setFirstName(currentUser.firstName);
-                    setLastName(currentUser.lastName);
-                  }}
-                >
+                <Button variant="text" disabled={mutation.isPending} onClick={cancelEdit}>
                   Cancel
                 </Button>
               </Stack>
@@ -146,14 +248,29 @@ export function ProfilePage() {
                 </Typography>
               </Box>
               <Button variant="outlined" size="small" onClick={() => setEditing(true)}>
-                Edit name
+                Edit profile
               </Button>
             </Stack>
             <Divider />
             <Stack spacing={1}>
-              <Typography variant="body2">
-                <strong>Status:</strong> {currentUser.status}
-              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2">
+                  <strong>Status:</strong>
+                </Typography>
+                <Chip size="small" label={currentUser.status} color={userStatusChipColor(currentUser.status)} />
+              </Stack>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Typography variant="body2">
+                  <strong>Roles:</strong>
+                </Typography>
+                {currentUser.roles.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    None
+                  </Typography>
+                ) : (
+                  currentUser.roles.map((role) => <Chip key={role} size="small" variant="outlined" label={role} />)
+                )}
+              </Stack>
               <Typography variant="body2">
                 <strong>Locale:</strong> {currentUser.locale}
               </Typography>
@@ -182,6 +299,22 @@ export function ProfilePage() {
           </Stack>
         )}
       </Paper>
+
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h6">Password</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Change the password used to sign in.
+            </Typography>
+          </Box>
+          <Button variant="outlined" size="small" onClick={() => setPasswordDialogOpen(true)}>
+            Change password
+          </Button>
+        </Stack>
+      </Paper>
+
+      <ChangePasswordDialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} />
     </Box>
   );
 }
