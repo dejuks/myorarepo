@@ -32,6 +32,10 @@ npm run test:cov   # with coverage
 
 All business endpoints are versioned under `/api/v1`; `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `POST /auth/mfa/enroll`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`. `GET /health` and `GET /health/ready` are unversioned, for the container orchestrator. Full request/response schemas are in Swagger UI at `/api-docs` once the service is running.
 
+## Super-admin bootstrap
+
+If `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` are both set, a login credential for that email is created once at startup (idempotent — skipped on every subsequent boot once it exists), with roles `['ADMIN', 'USER']`. This solves the chicken-and-egg problem of assigning the first `ADMIN` role, since doing so through the normal API requires an existing admin token. The user id is derived deterministically from the email (UUID v5), so this service and `user-service` agree on the same id without calling each other. See `TESTING.md` in the repo root for the default local-dev credentials and a production warning.
+
 ## Production notes
 
 Rotate `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` per environment and never commit them. Refresh tokens are rotated on every use and hashed at rest; reuse of a revoked refresh token revokes the entire token family, which is the standard defense against refresh-token theft. Account lockout (5 failed attempts → 15 minute lock) is enforced independently of the gateway/IP-based rate limiter, so a distributed attack against one account is still caught. This service is the identity provider for the platform — every other service verifies tokens locally using the shared public verification contract rather than calling back into `auth-service` on every request.

@@ -5,10 +5,20 @@ import { logger } from '@common/logger/logger';
 import { AppDataSource } from '@infrastructure/database/data-source';
 import { rabbitMqPublisher } from '@infrastructure/messaging/rabbitmq.publisher';
 import { redisClient } from '@infrastructure/cache/redis.client';
+import { UserRepository } from '@infrastructure/repositories/user.repository';
+import { RoleRepository } from '@infrastructure/repositories/role.repository';
+import { UserRoleAssignmentRepository } from '@infrastructure/repositories/user-role-assignment.repository';
+import { bootstrapSuperAdmin } from '@infrastructure/bootstrap/super-admin.bootstrap';
 
 async function bootstrap(): Promise<void> {
   await AppDataSource.initialize();
   logger.info('Database connection established');
+
+  await bootstrapSuperAdmin(new UserRepository(), new RoleRepository(), new UserRoleAssignmentRepository(), {
+    email: env.SUPER_ADMIN_EMAIL,
+    firstName: env.SUPER_ADMIN_FIRST_NAME,
+    lastName: env.SUPER_ADMIN_LAST_NAME,
+  });
 
   await rabbitMqPublisher.connect();
 

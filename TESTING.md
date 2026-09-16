@@ -30,6 +30,21 @@ docker compose exec search-service npm run migrate:prod
 
 You only need to re-run a service's migration after you pull a change that adds a new migration file.
 
+## 2a. Log in as the built-in super-admin (no manual setup needed)
+
+`infra/docker-compose.yml` sets default `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` values, so as soon as `auth-service` and `user-service` finish their first boot (after step 1, before or after running migrations — it re-checks on every restart and is a no-op once seeded) you already have an admin account:
+
+```
+email:    admin@ora.local
+password: ChangeMe123!
+```
+
+This account is created directly in each service's database at startup (not through the public API), is assigned both `USER` and `ADMIN` roles in user-service, and has a matching login credential in auth-service — the two services independently derive the same user id for this email via a deterministic UUID, so no coordination between them is needed. It's idempotent: safe to leave the env vars set permanently, restart the stack as often as you like, and it will never create a duplicate or reset anything once it exists.
+
+Log in at http://localhost:3000/login with the credentials above to reach the admin-only pages: `/admin/users` (search/manage all users) and `/admin/roles` (roles reference).
+
+**Change `SUPER_ADMIN_PASSWORD` (and ideally `SUPER_ADMIN_EMAIL`) before running this anywhere beyond your own machine** — set them in a `.env` file next to `infra/docker-compose.yml` (Compose picks it up automatically) rather than editing the compose file itself. Setting `SUPER_ADMIN_EMAIL` blank disables the seed entirely for a given service.
+
 ## 3. Test on the interface
 
 Everything is now reachable in your browser:

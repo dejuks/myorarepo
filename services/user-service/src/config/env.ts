@@ -30,6 +30,13 @@ export const env = cleanEnv(process.env, {
 
   DEFAULT_PAGE_SIZE: num({ default: 20 }),
   MAX_PAGE_SIZE: num({ default: 100 }),
+
+  // Optional super-admin bootstrap seed — see infrastructure/bootstrap/super-admin.bootstrap.ts.
+  // Must match auth-service's SUPER_ADMIN_EMAIL exactly (same value derives the same user id).
+  // Leave unset to disable seeding entirely. Safe to leave set across restarts: idempotent.
+  SUPER_ADMIN_EMAIL: str({ default: '' }),
+  SUPER_ADMIN_FIRST_NAME: str({ default: 'Super' }),
+  SUPER_ADMIN_LAST_NAME: str({ default: 'Admin' }),
 });
 
 export type Env = typeof env;

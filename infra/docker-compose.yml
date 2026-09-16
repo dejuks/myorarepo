@@ -19,11 +19,27 @@
 # POST http://localhost:8080/api/v1/auth/register), which is what a real
 # client would call — the direct service ports above are exposed only so
 # you can reach each service's own Swagger UI for interactive testing.
+#
+# First login: a super-admin account is auto-seeded on first boot from the
+# SUPER_ADMIN_* vars below (default admin@ora.local / ChangeMe123! — see
+# x-super-admin-env). CHANGE THE PASSWORD before this ever runs anywhere
+# beyond your own machine (override SUPER_ADMIN_PASSWORD via a real
+# environment variable or a .env file — never edit the default in place).
+# The seed is idempotent: safe to leave configured across every restart,
+# it only ever creates the account once.
 
 x-jwt-env: &jwt-env
   JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_32_chars_min}
   JWT_ISSUER: ora-platform
   JWT_AUDIENCE: ora-platform-clients
+
+# Shared between auth-service and user-service so the seeded account's
+# email can't accidentally drift between the two (see
+# services/*/src/infrastructure/bootstrap/super-admin.bootstrap.ts — both
+# derive the same user id from this same email via UUID v5). Set
+# SUPER_ADMIN_EMAIL="" (or leave the whole block unset) to disable seeding.
+x-super-admin-env: &super-admin-env
+  SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@ora.local}
 
 services:
   # ---------------------------------------------------------------------
@@ -82,7 +98,7 @@ services:
     restart: unless-stopped
     ports: ["4001:4001"]
     environment:
-      <<: *jwt-env
+      <<: [*jwt-env, *super-admin-env]
       NODE_ENV: production
       PORT: 4001
       SERVICE_NAME: auth-service
@@ -99,6 +115,7 @@ services:
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_EXCHANGE: ora.auth.events
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMe123!}
       LOG_LEVEL: info
     depends_on:
       auth-db: { condition: service_healthy }
@@ -132,7 +149,7 @@ services:
     restart: unless-stopped
     ports: ["4002:4002"]
     environment:
-      <<: *jwt-env
+      <<: [*jwt-env, *super-admin-env]
       NODE_ENV: production
       PORT: 4002
       SERVICE_NAME: user-service
@@ -146,6 +163,8 @@ services:
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_EXCHANGE: ora.user.events
+      SUPER_ADMIN_FIRST_NAME: ${SUPER_ADMIN_FIRST_NAME:-Super}
+      SUPER_ADMIN_LAST_NAME: ${SUPER_ADMIN_LAST_NAME:-Admin}
       LOG_LEVEL: info
     depends_on:
       user-db: { condition: service_healthy }

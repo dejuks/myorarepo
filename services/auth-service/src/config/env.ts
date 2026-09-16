@@ -39,6 +39,12 @@ export const env = cleanEnv(process.env, {
   LOGIN_RATE_LIMIT_WINDOW_MS: num({ default: 900000 }),
   LOGIN_RATE_LIMIT_MAX_ATTEMPTS: num({ default: 5 }),
 
+  // Optional super-admin bootstrap seed — see infrastructure/bootstrap/super-admin.bootstrap.ts.
+  // Leave both unset to disable seeding entirely. Safe to leave set across
+  // restarts: the seed is idempotent and no-ops once the account exists.
+  SUPER_ADMIN_EMAIL: str({ default: '' }),
+  SUPER_ADMIN_PASSWORD: str({ default: '' }),
+
   LOG_LEVEL: str({ default: 'info' }),
 });
 
