@@ -43,7 +43,7 @@ export class FakeUserCredentialRepository implements IUserCredentialRepository {
       failedLoginAttempts: 0,
       lockedUntil: null,
       lastLoginAt: null,
-      emailVerifiedAt: null,
+      emailVerifiedAt: entity.emailVerifiedAt ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

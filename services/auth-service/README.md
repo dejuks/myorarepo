@@ -16,6 +16,8 @@ Every new account starts `PENDING_VERIFICATION` and **login is rejected** (`asse
 
 This applies identically whether the account was created via self-registration or an admin/module-admin's "Create user" action — the person who owns that email address still has to prove it before the account can log in.
 
+**Disabling it for local development** — `REQUIRE_EMAIL_VERIFICATION` (env var, default `true`). Set to `false` in your local `.env` only, never in staging/production, and every new account (self-registered or admin-created) is created `ACTIVE` immediately: no token is issued, no email is sent, and login works right away. This exists purely so testing user/account creation locally doesn't require fishing a link out of notification-service's console logs on every run — the real flow above is exercised in full whenever the flag is left at its default. `auth.email_verification.completed` is still published in this mode (so `user-service`'s auto-activation consumer still fires and profiles don't get stuck `PENDING`), it's just triggered immediately by `register()` instead of by a token being verified.
+
 ## Quick start
 
 ```bash

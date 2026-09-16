@@ -39,6 +39,17 @@ export const env = cleanEnv(process.env, {
   // renders HTML itself, it just hands notification-service a ready-made URL.
   FRONTEND_URL: str({ default: 'http://localhost:3000' }),
 
+  // Gates the whole email-verification requirement (see AuthService.register /
+  // assertAccountIsUsable). Defaults to true — the production-correct
+  // setting, where every new account (self-registered or admin/module-admin
+  // -created) must click an emailed link before it can log in. Set to
+  // 'false' only in local/dev environments that have no real mail delivery
+  // wired up (the console email provider just logs the link, which is a
+  // hassle to fetch on every test account): accounts are then created
+  // ACTIVE immediately, no token is issued, and no verification email is
+  // sent. Never disable this in staging/production.
+  REQUIRE_EMAIL_VERIFICATION: bool({ default: true }),
+
   BCRYPT_SALT_ROUNDS: num({ default: 12 }),
 
   LOGIN_RATE_LIMIT_WINDOW_MS: num({ default: 900000 }),

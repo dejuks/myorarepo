@@ -62,24 +62,49 @@ export class AuthService {
       throw new ConflictError('An account with this email already exists');
     }
 
+    const requireVerification = env.REQUIRE_EMAIL_VERIFICATION;
     const passwordHash = await hashPassword(dto.password);
     const credential = await this.userCredentialRepo.create({
       userId: dto.userId,
       email: dto.email.toLowerCase(),
       passwordHash,
       roles: ['USER'],
-      accountStatus: AccountStatus.PENDING_VERIFICATION,
+      accountStatus: requireVerification ? AccountStatus.PENDING_VERIFICATION : AccountStatus.ACTIVE,
+      emailVerifiedAt: requireVerification ? null : new Date(),
     });
 
     // auth.registered is kept for consumers that just want to know an account exists (e.g. a
-    // welcome notification) — it does NOT mean the account is usable yet. Nothing may treat
-    // it as an activation signal; see sendVerificationEmail for the real activation trigger.
+    // welcome notification) — it does NOT mean the account is usable yet even when verification
+    // is required. Nothing may treat it as an activation signal; see sendVerificationEmail /
+    // activateWithoutVerification for the real activation triggers.
     await rabbitMqPublisher.publish('auth.registered', { userId: credential.userId, email: credential.email });
     await this.auditLogRepo.record({ userId: credential.userId, eventType: AuthAuditEventType.LOGIN_SUCCESS, metadata: { action: 'register' } });
 
-    await this.sendVerificationEmail(credential.userId, credential.email);
+    if (requireVerification) {
+      await this.sendVerificationEmail(credential.userId, credential.email);
+    } else {
+      await this.activateWithoutVerification(credential.userId, credential.email);
+    }
 
     return { userId: credential.userId };
+  }
+
+  /**
+   * The REQUIRE_EMAIL_VERIFICATION=false path (see config/env.ts) — dev/local
+   * only. The account was already created ACTIVE above, so this just does
+   * the other two things sendVerificationEmail's real counterpart,
+   * verifyEmail, would otherwise have done: records the audit trail and
+   * publishes auth.email_verification.completed so user-service's consumer
+   * still flips the matching profile PENDING -> ACTIVE. No token is created
+   * and no email is sent — there is nothing for the user to click.
+   */
+  private async activateWithoutVerification(userId: string, email: string): Promise<void> {
+    await this.auditLogRepo.record({
+      userId,
+      eventType: AuthAuditEventType.EMAIL_VERIFICATION_COMPLETED,
+      metadata: { autoVerified: true, reason: 'REQUIRE_EMAIL_VERIFICATION=false' },
+    });
+    await rabbitMqPublisher.publish('auth.email_verification.completed', { userId, email });
   }
 
   /**
