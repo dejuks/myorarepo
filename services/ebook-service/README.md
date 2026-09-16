@@ -45,15 +45,19 @@ npm test
 
 Covers `RoleService` (role catalog CRUD), `MemberRoleService` (assign/revoke/list role assignments), and `bootstrapModuleAdmin` (idempotent bootstrap seeding).
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `BOOK_EDITOR` can do this anymore. Assigning/revoking an *existing* role to a member stays with `BOOK_EDITOR`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `BOOK_EDITOR` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`).
+
 ## REST surface
 
 Mounted at `/api/v1` inside this service; the gateway forwards the full path unchanged, so from outside the platform these are reached at `/api/v1/ebooks/...`.
 
 - `GET /roles` — list this module's role catalog. Authenticated.
-- `POST /roles` — create a custom (non-system) role. `BOOK_EDITOR` only.
-- `DELETE /roles/:id` — delete a custom role (system roles protected). `BOOK_EDITOR` only.
-- `GET /members/:userId/roles` — list a member's roles in this module. Self or `BOOK_EDITOR`.
-- `POST /members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `BOOK_EDITOR` only.
-- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `BOOK_EDITOR` only.
+- `POST /roles` — create a custom (non-system) role. Platform `ADMIN` only.
+- `DELETE /roles/:id` — delete a custom role (system roles protected). Platform `ADMIN` only.
+- `GET /members/:userId/roles` — list a member's roles in this module. Self, `BOOK_EDITOR`, or `ADMIN`.
+- `POST /members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `BOOK_EDITOR` or `ADMIN`.
+- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `BOOK_EDITOR` or `ADMIN`.
 
 `GET /health`, `GET /health/ready`, and `GET /api-docs` (Swagger UI) round out the surface.

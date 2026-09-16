@@ -50,6 +50,10 @@ All six are seeded as `is_system = true` (not deletable through the API) by the 
 
 If `SUPER_ADMIN_EMAIL` is set, the platform super-admin is assigned both `MEMBER` and `LIBRARY_MANAGER` in this module's database once at startup (idempotent — skipped on every subsequent boot once the assignment already exists). The member id is derived deterministically from the email (UUID v5, `computeBootstrapUserId`) so this service agrees with every other service on the same id for the same email without calling anyone over HTTP — see `docs/erd.md` for why.
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `LIBRARY_MANAGER` can do this anymore. Assigning/revoking an *existing* role to a member stays with `LIBRARY_MANAGER`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `LIBRARY_MANAGER` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`). Note this module's own local `ADMIN` role (a seeded catalog entry, see above) is a different thing from the platform-wide `ADMIN` role described here — the two happen to share a name, but only the platform-wide one (from `user-service`) grants this override.
+
 ## REST surface
 
-`GET /api/v1/library/roles` (auth), `POST /api/v1/library/roles` (`LIBRARY_MANAGER`), `DELETE /api/v1/library/roles/:id` (`LIBRARY_MANAGER`, system roles protected); `GET /api/v1/library/members/:userId/roles` (self or `LIBRARY_MANAGER`), `POST /api/v1/library/members/:userId/roles` (`LIBRARY_MANAGER`), `DELETE /api/v1/library/members/:userId/roles/:roleName` (`LIBRARY_MANAGER`).
+`GET /api/v1/library/roles` (auth), `POST /api/v1/library/roles` (platform `ADMIN`), `DELETE /api/v1/library/roles/:id` (platform `ADMIN`, system roles protected); `GET /api/v1/library/members/:userId/roles` (self, `LIBRARY_MANAGER`, or platform `ADMIN`), `POST /api/v1/library/members/:userId/roles` (`LIBRARY_MANAGER` or platform `ADMIN`), `DELETE /api/v1/library/members/:userId/roles/:roleName` (`LIBRARY_MANAGER` or platform `ADMIN`).

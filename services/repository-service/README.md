@@ -40,15 +40,19 @@ npm run test:cov
 
 If `SUPER_ADMIN_EMAIL` is set, the platform super-admin's deterministic userId (UUID v5, same derivation every service in the platform uses — see `src/common/utils/bootstrap-id.util.ts`) is assigned both `RESEARCHER_AUTHOR` (base role) and `REPOSITORY_ADMINISTRATOR` (top role) once at startup. Idempotent — safe to leave set across every restart; an existing assignment is skipped (logged at debug), and a missing system role (migrations not yet run) is skipped with a warning rather than throwing.
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `REPOSITORY_ADMINISTRATOR` can do this anymore. Assigning/revoking an *existing* role to a member stays with `REPOSITORY_ADMINISTRATOR`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `REPOSITORY_ADMINISTRATOR` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`).
+
 ## REST surface
 
 All routes are mounted under `/api/v1` and literally start with `/repository`, matching the gateway's `/api/v1/repository` prefix (the gateway forwards the full path unchanged):
 
 - `GET  /api/v1/repository/roles` — list the role catalog. `requireAuth`.
-- `POST /api/v1/repository/roles` — create a custom (non-system) role. `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)`.
-- `DELETE /api/v1/repository/roles/:id` — delete a custom role (system roles protected). `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)`.
-- `GET  /api/v1/repository/members/:userId/roles` — list a member's roles. `requireAuth, requireSelfOrRoles('userId', REPOSITORY_ADMINISTRATOR)`.
-- `POST /api/v1/repository/members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)`.
-- `DELETE /api/v1/repository/members/:userId/roles/:roleName` — revoke a role from a member. `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)`.
+- `POST /api/v1/repository/roles` — create a custom (non-system) role. `requireAuth, requireAdmin`.
+- `DELETE /api/v1/repository/roles/:id` — delete a custom role (system roles protected). `requireAuth, requireAdmin`.
+- `GET  /api/v1/repository/members/:userId/roles` — list a member's roles. `requireAuth, requireSelfOrRoles('userId', REPOSITORY_ADMINISTRATOR)` (also passes for platform `ADMIN`).
+- `POST /api/v1/repository/members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)` (also passes for platform `ADMIN`).
+- `DELETE /api/v1/repository/members/:userId/roles/:roleName` — revoke a role from a member. `requireAuth, requireRoles(REPOSITORY_ADMINISTRATOR)` (also passes for platform `ADMIN`).
 
 Plus `GET /health`, `GET /health/ready` (DB-only readiness check) and Swagger docs at `/api-docs`.

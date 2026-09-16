@@ -21,6 +21,10 @@ No separate granular Permission entity — same decision as `user-service` (see 
 
 All four are `is_system = true` (seeded by migration, not deletable through the API).
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `BUREAUCRAT` can do this anymore. Assigning/revoking an *existing* role to a member stays with `BUREAUCRAT`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `BUREAUCRAT` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`).
+
 ## Quick start
 
 ```bash

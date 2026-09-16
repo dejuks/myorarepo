@@ -63,13 +63,17 @@ same chicken-and-egg problem as the platform-wide super-admin bootstrap: the
 first person able to assign roles in this module needs a role already
 assigned by someone.
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `JOURNAL_MANAGER` can do this anymore. Assigning/revoking an *existing* role to a member stays with `JOURNAL_MANAGER`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `JOURNAL_MANAGER` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`).
+
 ## REST surface
 
 Mounted behind the gateway at `/api/v1/journals`:
 
 - `GET /roles` — list this module's role catalog. Authenticated.
-- `POST /roles` — create a custom (non-system) role. `JOURNAL_MANAGER` only.
-- `DELETE /roles/:id` — delete a custom role (system roles protected). `JOURNAL_MANAGER` only.
-- `GET /members/:userId/roles` — list a member's roles in this module. Self or `JOURNAL_MANAGER`.
-- `POST /members/:userId/roles` — assign a role to a member (`{ roleName }`). `JOURNAL_MANAGER` only.
-- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `JOURNAL_MANAGER` only.
+- `POST /roles` — create a custom (non-system) role. Platform `ADMIN` only.
+- `DELETE /roles/:id` — delete a custom role (system roles protected). Platform `ADMIN` only.
+- `GET /members/:userId/roles` — list a member's roles in this module. Self, `JOURNAL_MANAGER`, or `ADMIN`.
+- `POST /members/:userId/roles` — assign a role to a member (`{ roleName }`). `JOURNAL_MANAGER` or `ADMIN`.
+- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `JOURNAL_MANAGER` or `ADMIN`.

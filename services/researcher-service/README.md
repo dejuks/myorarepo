@@ -39,13 +39,17 @@ npm run test:cov
 
 If `SUPER_ADMIN_EMAIL` is set, the userId derived from that email (the same deterministic UUID v5 every service in the platform derives for the same email) is assigned both `RESEARCHER_MEMBER` and `PLATFORM_ADMINISTRATOR` once at startup — idempotent, safe to leave set across restarts. This solves the same chicken-and-egg problem the platform-wide super-admin bootstrap solves: the first person able to assign roles in this module needs a role already assigned by *someone*.
 
+## Permission model
+
+Role/permission **catalog** management (creating or deleting a role) is platform-`ADMIN`-only — not even `PLATFORM_ADMINISTRATOR` can do this anymore. Assigning/revoking an *existing* role to a member stays with `PLATFORM_ADMINISTRATOR`. In both cases, a caller holding the platform-wide `ADMIN` role (issued by `user-service`/`auth-service`, carried in the JWT `roles` claim) automatically passes every `PLATFORM_ADMINISTRATOR` check too, with no module-local role assignment needed — see `src/api/middleware/auth.middleware.ts` (`requireAdmin`, and the `PLATFORM_ADMIN_ROLE` override baked into `requireRoles`/`requireSelfOrRoles`). Note this module's own local `PLATFORM_ADMINISTRATOR` role is this module's top role, not to be confused with the platform-wide `ADMIN` role from `user-service` described here.
+
 ## REST surface
 
 Mounted at `/api/v1` inside the service; the gateway forwards the full `/api/v1/researchers/...` path unchanged.
 
 - `GET  /roles` — list this module's role catalog. Authenticated.
-- `POST /roles` — create a custom (non-system) role. `PLATFORM_ADMINISTRATOR` only.
-- `DELETE /roles/:id` — delete a custom role (system roles protected). `PLATFORM_ADMINISTRATOR` only.
-- `GET  /members/:userId/roles` — list a member's roles in this module. Self or `PLATFORM_ADMINISTRATOR`.
-- `POST /members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `PLATFORM_ADMINISTRATOR` only.
-- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `PLATFORM_ADMINISTRATOR` only.
+- `POST /roles` — create a custom (non-system) role. Platform `ADMIN` only.
+- `DELETE /roles/:id` — delete a custom role (system roles protected). Platform `ADMIN` only.
+- `GET  /members/:userId/roles` — list a member's roles in this module. Self, `PLATFORM_ADMINISTRATOR`, or `ADMIN`.
+- `POST /members/:userId/roles` — assign a role to a member (body: `{ roleName }`). `PLATFORM_ADMINISTRATOR` or `ADMIN`.
+- `DELETE /members/:userId/roles/:roleName` — revoke a role from a member. `PLATFORM_ADMINISTRATOR` or `ADMIN`.
