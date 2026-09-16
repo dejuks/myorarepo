@@ -25,6 +25,10 @@ export const env = cleanEnv(process.env, {
 
   RABBITMQ_URL: str({ default: 'amqp://guest:guest@localhost:5672' }),
   RABBITMQ_EXCHANGE: str({ default: 'ora.user.events' }),
+  // Consumed (not published) — auth-service's exchange, so a newly-registered
+  // profile can be auto-activated once its credentials exist. See
+  // infrastructure/messaging/auth-event-consumer.ts.
+  AUTH_EXCHANGE: str({ default: 'ora.auth.events' }),
 
   LOG_LEVEL: str({ default: 'info' }),
 

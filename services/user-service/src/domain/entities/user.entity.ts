@@ -1,7 +1,12 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
 export enum UserStatus {
-  PENDING = 'PENDING', // profile created, awaiting credential registration/email verification
+  // Profile created, awaiting login credentials in auth-service. Auto-transitions to
+  // ACTIVE once auth-service publishes `auth.registered` — see
+  // infrastructure/messaging/auth-event-consumer.ts. There is no separate
+  // email-verification step in this platform today; successful credential
+  // registration IS the activation signal.
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED', // temporary, admin-imposed
   DEACTIVATED = 'DEACTIVATED', // user-initiated account closure

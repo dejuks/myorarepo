@@ -92,6 +92,7 @@ Two communication modes are used, deliberately:
 |---|---|---|
 | `UserRegistered` | user-service | notification-service, search-service, researcher-service |
 | `UserProfileUpdated` | user-service | journal-service, ebook-service, repository-service, search-service |
+| `auth.registered` | auth-service | notification-service, **user-service** (auto-activates the matching profile PENDING → ACTIVE — see `services/user-service/README.md` "Auto-activation") |
 | `PasswordChanged` / `TokenRevoked` | auth-service | notification-service, monitoring-service |
 | `ArticleSubmitted` / `ArticlePublished` | journal-service | notification-service, search-service, monitoring-service |
 | `BookPublished` | ebook-service | search-service, notification-service |

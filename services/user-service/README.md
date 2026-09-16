@@ -8,6 +8,10 @@ Creates user profiles (`POST /users`, id supplied by the caller — the same UUI
 
 This service never issues JWTs; it only verifies access tokens issued by `auth-service`, using the same `JWT_ACCESS_SECRET`.
 
+### Auto-activation (`PENDING` → `ACTIVE`)
+
+A profile created via `POST /users` always starts `PENDING`. There is no separate email-verification step in this platform, so the activation signal is simply "this person also has working login credentials": `src/infrastructure/messaging/auth-event-consumer.ts` subscribes to auth-service's `ora.auth.events` exchange (`AUTH_EXCHANGE` env var, default `ora.auth.events`) and, on `auth.registered`, calls `UserService.changeStatus(userId, { status: 'ACTIVE' }, 'system:auth-event-consumer')` for that user — same async, eventually-consistent pattern as every other cross-service reaction in this platform (see `docs/01-architecture.md` §5), not a new synchronous call back into user-service. It's idempotent: a redelivered event for an already-`ACTIVE` user is a silent no-op (no duplicate `user.status_changed` event), and one for a `SUSPENDED`/`DEACTIVATED` user is logged and dropped rather than retried forever. In the rare case this consumer can't start (RabbitMQ unreachable at boot) or a message is dead-lettered, an admin can still activate manually via `PATCH /users/:id/status` (also used by the web admin UI's "Change status" action).
+
 ## Quick start
 
 ```bash
