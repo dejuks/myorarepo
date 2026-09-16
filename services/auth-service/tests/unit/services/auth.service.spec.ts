@@ -4,9 +4,11 @@ import {
   FakeUserCredentialRepository,
   FakeRefreshTokenRepository,
   FakePasswordResetTokenRepository,
+  FakeEmailVerificationTokenRepository,
   FakeAuthAuditLogRepository,
 } from './fakes';
 import { hashPassword } from '@common/utils/password.util';
+import { rabbitMqPublisher } from '@infrastructure/messaging/rabbitmq.publisher';
 
 // Infrastructure singletons are mocked so unit tests never touch real Redis/RabbitMQ.
 jest.mock('@infrastructure/cache/redis.client', () => ({
@@ -24,6 +26,7 @@ describe('AuthService', () => {
   let userCredentialRepo: FakeUserCredentialRepository;
   let refreshTokenRepo: FakeRefreshTokenRepository;
   let passwordResetTokenRepo: FakePasswordResetTokenRepository;
+  let emailVerificationTokenRepo: FakeEmailVerificationTokenRepository;
   let auditLogRepo: FakeAuthAuditLogRepository;
   let authService: AuthService;
 
@@ -31,8 +34,9 @@ describe('AuthService', () => {
     userCredentialRepo = new FakeUserCredentialRepository();
     refreshTokenRepo = new FakeRefreshTokenRepository();
     passwordResetTokenRepo = new FakePasswordResetTokenRepository();
+    emailVerificationTokenRepo = new FakeEmailVerificationTokenRepository();
     auditLogRepo = new FakeAuthAuditLogRepository();
-    authService = new AuthService(userCredentialRepo, refreshTokenRepo, passwordResetTokenRepo, auditLogRepo);
+    authService = new AuthService(userCredentialRepo, refreshTokenRepo, passwordResetTokenRepo, emailVerificationTokenRepo, auditLogRepo);
   });
 
   describe('register', () => {
@@ -56,6 +60,17 @@ describe('AuthService', () => {
       await expect(
         authService.register({ userId: 'id-2', email: 'dup@example.com', password: 'AnotherPass1!' }),
       ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('leaves the new account PENDING_VERIFICATION and issues a verification email, not ACTIVE', async () => {
+      await authService.register({ userId: 'id-3', email: 'unverified@example.com', password: 'StrongPass1!' });
+
+      const stored = await userCredentialRepo.findByEmail('unverified@example.com');
+      expect(stored?.accountStatus).toBe(AccountStatus.PENDING_VERIFICATION);
+      expect(emailVerificationTokenRepo.rows.size).toBe(1);
+
+      const publishCalls = (rabbitMqPublisher.publish as jest.Mock).mock.calls;
+      expect(publishCalls.some(([eventType]) => eventType === 'auth.email_verification.requested')).toBe(true);
     });
   });
 
@@ -128,6 +143,15 @@ describe('AuthService', () => {
       await expect(
         authService.login({ email: 'disabled@example.com', password: 'CorrectPass1!' }, {}),
       ).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('rejects login for a not-yet-verified account, even with the correct password', async () => {
+      const result = await authService.register({ userId: 'pending-user', email: 'pending@example.com', password: 'CorrectPass1!' });
+      expect(result.userId).toBe('pending-user');
+
+      await expect(
+        authService.login({ email: 'pending@example.com', password: 'CorrectPass1!' }, {}),
+      ).rejects.toMatchObject({ statusCode: 403, message: expect.stringContaining('verify your email') });
     });
   });
 
@@ -232,6 +256,63 @@ describe('AuthService', () => {
 
     it('silently no-ops for an unknown email (prevents account enumeration)', async () => {
       await expect(authService.requestPasswordReset('unknown@example.com')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('verifyEmail / resendVerificationEmail', () => {
+    function lastVerificationToken(): string {
+      const publishCalls = (rabbitMqPublisher.publish as jest.Mock).mock.calls;
+      const requested = [...publishCalls].reverse().find(([eventType]) => eventType === 'auth.email_verification.requested');
+      const url = new URL((requested![1] as { verificationUrl: string }).verificationUrl);
+      return url.searchParams.get('token') as string;
+    }
+
+    it('activates the account and lets it log in once verified', async () => {
+      await authService.register({ userId: 'verify-user', email: 'verify@example.com', password: 'CorrectPass1!' });
+      const token = lastVerificationToken();
+
+      await authService.verifyEmail({ token });
+
+      const stored = await userCredentialRepo.findByEmail('verify@example.com');
+      expect(stored?.accountStatus).toBe(AccountStatus.ACTIVE);
+      expect(stored?.emailVerifiedAt).not.toBeNull();
+
+      await expect(
+        authService.login({ email: 'verify@example.com', password: 'CorrectPass1!' }, {}),
+      ).resolves.toMatchObject({ tokenType: 'Bearer' });
+    });
+
+    it('rejects an invalid or already-used token', async () => {
+      await expect(authService.verifyEmail({ token: 'not-a-real-token' })).rejects.toMatchObject({ statusCode: 401 });
+
+      await authService.register({ userId: 'verify-user-2', email: 'verify2@example.com', password: 'CorrectPass1!' });
+      const token = lastVerificationToken();
+      await authService.verifyEmail({ token });
+
+      await expect(authService.verifyEmail({ token })).rejects.toMatchObject({ statusCode: 401 });
+    });
+
+    it('resend issues a fresh token and invalidates the previous one', async () => {
+      await authService.register({ userId: 'verify-user-3', email: 'verify3@example.com', password: 'CorrectPass1!' });
+      const firstToken = lastVerificationToken();
+
+      await authService.resendVerificationEmail('verify3@example.com');
+      const secondToken = lastVerificationToken();
+
+      expect(secondToken).not.toBe(firstToken);
+      await expect(authService.verifyEmail({ token: firstToken })).rejects.toMatchObject({ statusCode: 401 });
+      await expect(authService.verifyEmail({ token: secondToken })).resolves.toBeUndefined();
+    });
+
+    it('resend silently no-ops for an unknown or already-verified email', async () => {
+      await expect(authService.resendVerificationEmail('unknown@example.com')).resolves.toBeUndefined();
+
+      await authService.register({ userId: 'verify-user-4', email: 'verify4@example.com', password: 'CorrectPass1!' });
+      await authService.verifyEmail({ token: lastVerificationToken() });
+
+      const callsBefore = (rabbitMqPublisher.publish as jest.Mock).mock.calls.length;
+      await authService.resendVerificationEmail('verify4@example.com');
+      expect((rabbitMqPublisher.publish as jest.Mock).mock.calls.length).toBe(callsBefore);
     });
   });
 

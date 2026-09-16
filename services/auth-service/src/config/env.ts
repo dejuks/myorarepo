@@ -34,6 +34,11 @@ export const env = cleanEnv(process.env, {
   RABBITMQ_URL: str({ default: 'amqp://guest:guest@localhost:5672' }),
   RABBITMQ_EXCHANGE: str({ default: 'ora.auth.events' }),
 
+  // Used only to build the clickable link in the verification/reset emails
+  // (e.g. `${FRONTEND_URL}/verify-email?token=...`) — auth-service never
+  // renders HTML itself, it just hands notification-service a ready-made URL.
+  FRONTEND_URL: str({ default: 'http://localhost:3000' }),
+
   BCRYPT_SALT_ROUNDS: num({ default: 12 }),
 
   LOGIN_RATE_LIMIT_WINDOW_MS: num({ default: 900000 }),

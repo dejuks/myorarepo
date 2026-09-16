@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -20,6 +21,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { CreateUserDialog } from '@/components/CreateUserDialog';
 import { useUsers } from '@/hooks/useUsers';
 import { UserStatus } from '@/types/domain';
 import { userStatusChipColor } from '@/utils/userStatus';
@@ -42,6 +44,7 @@ export function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<UserStatus | ''>('');
   const [page, setPage] = useState(1);
+  const [createUserOpen, setCreateUserOpen] = useState(false);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -68,9 +71,12 @@ export function AdminUsersPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Users
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="h4">Users</Typography>
+        <Button variant="contained" onClick={() => setCreateUserOpen(true)}>
+          Create user
+        </Button>
+      </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
         <TextField
@@ -157,6 +163,12 @@ export function AdminUsersPage() {
           <Pagination count={totalPages} page={page} onChange={(_e, value) => setPage(value)} />
         </Box>
       )}
+
+      <CreateUserDialog
+        open={createUserOpen}
+        onClose={() => setCreateUserOpen(false)}
+        onCreated={(createdUser) => navigate(`/admin/users/${createdUser.id}`)}
+      />
     </Box>
   );
 }

@@ -2,9 +2,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { UserCredential, AccountStatus } from '@domain/entities/user-credential.entity';
 import { RefreshToken } from '@domain/entities/refresh-token.entity';
 import { PasswordResetToken } from '@domain/entities/password-reset-token.entity';
+import { EmailVerificationToken } from '@domain/entities/email-verification-token.entity';
 import { IUserCredentialRepository } from '@domain/repositories/user-credential.repository.interface';
 import { IRefreshTokenRepository } from '@domain/repositories/refresh-token.repository.interface';
 import { IPasswordResetTokenRepository } from '@domain/repositories/password-reset-token.repository.interface';
+import { IEmailVerificationTokenRepository } from '@domain/repositories/email-verification-token.repository.interface';
 import { IAuthAuditLogRepository } from '@domain/repositories/auth-audit-log.repository.interface';
 
 /**
@@ -123,6 +125,35 @@ export class FakePasswordResetTokenRepository implements IPasswordResetTokenRepo
 
   async create(entity: Partial<PasswordResetToken>) {
     const row: PasswordResetToken = {
+      id: uuidv4(),
+      userId: entity.userId ?? '',
+      tokenHash: entity.tokenHash ?? '',
+      expiresAt: entity.expiresAt ?? new Date(Date.now() + 60_000),
+      usedAt: null,
+      createdAt: new Date(),
+    };
+    this.rows.set(row.id, row);
+    return row;
+  }
+  async findByTokenHash(tokenHash: string) {
+    return [...this.rows.values()].find((r) => r.tokenHash === tokenHash) ?? null;
+  }
+  async markUsed(id: string) {
+    const row = this.rows.get(id);
+    if (row) row.usedAt = new Date();
+  }
+  async invalidateAllForUser(userId: string) {
+    for (const row of this.rows.values()) {
+      if (row.userId === userId && !row.usedAt) row.usedAt = new Date();
+    }
+  }
+}
+
+export class FakeEmailVerificationTokenRepository implements IEmailVerificationTokenRepository {
+  public rows = new Map<string, EmailVerificationToken>();
+
+  async create(entity: Partial<EmailVerificationToken>) {
+    const row: EmailVerificationToken = {
       id: uuidv4(),
       userId: entity.userId ?? '',
       tokenHash: entity.tokenHash ?? '',

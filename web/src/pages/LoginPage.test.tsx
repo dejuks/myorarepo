@@ -6,9 +6,10 @@ import { LoginPage } from '@/pages/LoginPage';
 
 vi.mock('@/api/authApi', () => ({
   login: vi.fn(),
+  resendVerificationEmail: vi.fn(),
 }));
 
-import { login } from '@/api/authApi';
+import { login, resendVerificationEmail } from '@/api/authApi';
 
 describe('LoginPage validation', () => {
   it('shows required-field errors when submitting an empty form', async () => {
@@ -50,5 +51,22 @@ describe('LoginPage validation', () => {
       ),
     );
     expect(await screen.findByTestId('login-error')).toHaveTextContent(/temporarily locked/i);
+  });
+
+  it('offers to resend the verification email when login is rejected for an unverified account', async () => {
+    vi.mocked(login).mockRejectedValueOnce({ message: 'Please verify your email before logging in. Check your inbox for the verification link, or request a new one.' });
+    vi.mocked(resendVerificationEmail).mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    renderWithProviders(<LoginPage />, { route: '/login' });
+
+    await user.type(screen.getByLabelText(/email/i), 'pending@example.com');
+    await user.type(screen.getByLabelText(/^password/i), 'StrongPass1!');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    const resendLink = await screen.findByTestId('resend-verification-link');
+    await user.click(resendLink);
+
+    await waitFor(() => expect(resendVerificationEmail).toHaveBeenCalledWith('pending@example.com'));
+    expect(await screen.findByTestId('resend-verification-sent')).toBeInTheDocument();
   });
 });

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { v4 as uuidv4 } from 'uuid';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -34,13 +32,12 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { PasswordPolicyHint } from '@/components/PasswordPolicyHint';
+import { CreateUserDialog } from '@/components/CreateUserDialog';
 import { getModule } from '@/config/modules';
 import { useUsers } from '@/hooks/useUsers';
 import { useModuleRoles, useCreateModuleRole, useDeleteModuleRole } from '@/hooks/useModuleRoles';
 import { useModuleMemberRoles, useAssignMemberRole, useRevokeMemberRole } from '@/hooks/useModuleMemberRoles';
-import { createUserProfile, registerCredentials } from '@/api/authApi';
-import { checkPasswordPolicy, isValidEmail, isValidRoleName, passwordPolicyMessage, roleNameMessage } from '@/utils/validation';
+import { isValidRoleName, roleNameMessage } from '@/utils/validation';
 import type { ApiErrorInfo } from '@/types/api';
 import type { Role, User } from '@/types/domain';
 
@@ -97,45 +94,7 @@ export function ModuleRolesPage() {
   const assignMemberRoleMutation = useAssignMemberRole(mod, selectedMember?.id);
   const revokeMemberRoleMutation = useRevokeMemberRole(mod, selectedMember?.id);
 
-  const queryClient = useQueryClient();
   const [createUserOpen, setCreateUserOpen] = useState(false);
-  const [newFirstName, setNewFirstName] = useState('');
-  const [newLastName, setNewLastName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newConfirmPassword, setNewConfirmPassword] = useState('');
-  const [newUserFieldErrors, setNewUserFieldErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-  }>({});
-  const [newUserError, setNewUserError] = useState<string | null>(null);
-  const [newUserPartialWarning, setNewUserPartialWarning] = useState(false);
-
-  // Same two-step flow as the public self-registration page (create the profile in
-  // user-service, then create login credentials in auth-service for the same id) — a
-  // module admin creating an account here creates a REAL platform account, usable
-  // everywhere, not a module-scoped one. The module has no user directory of its own.
-  const createUserMutation = useMutation({
-    mutationFn: async (): Promise<User> => {
-      const userId = uuidv4();
-      const profile = await createUserProfile({
-        id: userId,
-        email: newEmail.trim(),
-        firstName: newFirstName.trim(),
-        lastName: newLastName.trim(),
-      });
-      try {
-        await registerCredentials({ userId, email: newEmail.trim(), password: newPassword });
-      } catch (credentialsError) {
-        setNewUserPartialWarning(true);
-        throw credentialsError;
-      }
-      return profile;
-    },
-  });
 
   if (!mod) {
     return <Alert severity="error">Unknown module "{moduleKey}".</Alert>;
@@ -182,61 +141,6 @@ export function ModuleRolesPage() {
     assignMemberRoleMutation.mutate(roleToAdd, {
       onSuccess: () => setRoleToAdd(''),
       onError: (error) => setMemberRoleError((error as ApiErrorInfo).message || 'Could not assign this role.'),
-    });
-  }
-
-  function openCreateUserDialog() {
-    setNewFirstName('');
-    setNewLastName('');
-    setNewEmail('');
-    setNewPassword('');
-    setNewConfirmPassword('');
-    setNewUserFieldErrors({});
-    setNewUserError(null);
-    setNewUserPartialWarning(false);
-    setCreateUserOpen(true);
-  }
-
-  function validateNewUser(): boolean {
-    const errors: typeof newUserFieldErrors = {};
-    if (!newFirstName.trim()) errors.firstName = 'First name is required';
-    if (!newLastName.trim()) errors.lastName = 'Last name is required';
-    if (!newEmail.trim()) {
-      errors.email = 'Email is required';
-    } else if (!isValidEmail(newEmail)) {
-      errors.email = 'Enter a valid email address';
-    }
-    if (!newPassword) {
-      errors.password = 'Password is required';
-    } else if (!checkPasswordPolicy(newPassword).isValid) {
-      errors.password = passwordPolicyMessage();
-    }
-    if (!newConfirmPassword) {
-      errors.confirmPassword = 'Please confirm the password';
-    } else if (newConfirmPassword !== newPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-    setNewUserFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  }
-
-  function handleCreateUserSubmit(event: FormEvent) {
-    event.preventDefault();
-    setNewUserError(null);
-    setNewUserPartialWarning(false);
-    if (!validateNewUser()) return;
-
-    createUserMutation.mutate(undefined, {
-      onSuccess: (createdUser) => {
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        setSelectedMember(createdUser);
-        setMemberSearch('');
-        setCreateUserOpen(false);
-      },
-      onError: (error) => {
-        const info = error as ApiErrorInfo;
-        setNewUserError(info.message || 'Could not create this account.');
-      },
     });
   }
 
@@ -341,7 +245,7 @@ export function ModuleRolesPage() {
           <Paper variant="outlined" sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Member roles</Typography>
-              <Button size="small" variant="outlined" onClick={openCreateUserDialog}>
+              <Button size="small" variant="outlined" onClick={() => setCreateUserOpen(true)}>
                 Create user
               </Button>
             </Stack>
@@ -472,88 +376,15 @@ export function ModuleRolesPage() {
         </Box>
       </Dialog>
 
-      <Dialog open={createUserOpen} onClose={() => setCreateUserOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Create a platform user</DialogTitle>
-        <Box component="form" onSubmit={handleCreateUserSubmit} noValidate>
-          <DialogContent>
-            <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary">
-                This creates a real ORA account, usable across the whole platform — not just {mod.label}. Once
-                created, it's selected below so you can assign it a role in this module right away.
-              </Typography>
-              {newUserPartialWarning && (
-                <Alert severity="warning">
-                  The account profile was created, but credentials setup didn&apos;t finish — please try again or
-                  contact support before assigning this person a role.
-                </Alert>
-              )}
-              {newUserError && !newUserPartialWarning && <Alert severity="error">{newUserError}</Alert>}
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="First name"
-                  value={newFirstName}
-                  onChange={(e) => setNewFirstName(e.target.value)}
-                  error={Boolean(newUserFieldErrors.firstName)}
-                  helperText={newUserFieldErrors.firstName}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Last name"
-                  value={newLastName}
-                  onChange={(e) => setNewLastName(e.target.value)}
-                  error={Boolean(newUserFieldErrors.lastName)}
-                  helperText={newUserFieldErrors.lastName}
-                  fullWidth
-                  required
-                />
-              </Stack>
-              <TextField
-                label="Email"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                error={Boolean(newUserFieldErrors.email)}
-                helperText={newUserFieldErrors.email}
-                autoComplete="email"
-                fullWidth
-                required
-              />
-              <TextField
-                label="Password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                error={Boolean(newUserFieldErrors.password)}
-                helperText={newUserFieldErrors.password}
-                autoComplete="new-password"
-                fullWidth
-                required
-              />
-              <PasswordPolicyHint password={newPassword} />
-              <TextField
-                label="Confirm password"
-                type="password"
-                value={newConfirmPassword}
-                onChange={(e) => setNewConfirmPassword(e.target.value)}
-                error={Boolean(newUserFieldErrors.confirmPassword)}
-                helperText={newUserFieldErrors.confirmPassword}
-                autoComplete="new-password"
-                fullWidth
-                required
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setCreateUserOpen(false)} disabled={createUserMutation.isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" disabled={createUserMutation.isPending}>
-              {createUserMutation.isPending ? 'Creating…' : 'Create account'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+      <CreateUserDialog
+        open={createUserOpen}
+        onClose={() => setCreateUserOpen(false)}
+        scopeLabel={`across the whole platform — not just ${mod.label}`}
+        onCreated={(createdUser) => {
+          setSelectedMember(createdUser);
+          setMemberSearch('');
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(roleToDelete)}

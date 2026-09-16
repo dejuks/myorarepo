@@ -4,6 +4,7 @@ import { AuthService } from '@application/services/auth.service';
 import { UserCredentialRepository } from '@infrastructure/repositories/user-credential.repository';
 import { RefreshTokenRepository } from '@infrastructure/repositories/refresh-token.repository';
 import { PasswordResetTokenRepository } from '@infrastructure/repositories/password-reset-token.repository';
+import { EmailVerificationTokenRepository } from '@infrastructure/repositories/email-verification-token.repository';
 import { AuthAuditLogRepository } from '@infrastructure/repositories/auth-audit-log.repository';
 import { validateDto } from '@api/middleware/validate-dto.middleware';
 import { requireAuth } from '@api/middleware/auth.middleware';
@@ -14,6 +15,8 @@ import { RefreshTokenDto } from '@application/dto/refresh-token.dto';
 import { ChangePasswordDto } from '@application/dto/change-password.dto';
 import { RequestPasswordResetDto } from '@application/dto/request-password-reset.dto';
 import { ResetPasswordDto } from '@application/dto/reset-password.dto';
+import { VerifyEmailDto } from '@application/dto/verify-email.dto';
+import { ResendVerificationDto } from '@application/dto/resend-verification.dto';
 import { VerifyMfaDto } from '@application/dto/verify-mfa.dto';
 
 const router = Router();
@@ -23,6 +26,7 @@ const authService = new AuthService(
   new UserCredentialRepository(),
   new RefreshTokenRepository(),
   new PasswordResetTokenRepository(),
+  new EmailVerificationTokenRepository(),
   new AuthAuditLogRepository(),
 );
 const controller = new AuthController(authService);
@@ -137,6 +141,29 @@ router.post('/auth/password-reset/request', validateDto(RequestPasswordResetDto)
  *       401: { description: Token invalid or expired }
  */
 router.post('/auth/password-reset/confirm', validateDto(ResetPasswordDto), controller.resetPassword);
+
+/**
+ * @openapi
+ * /auth/verify-email:
+ *   post:
+ *     summary: Completes email verification with the token from the verification email — the only way PENDING_VERIFICATION becomes ACTIVE
+ *     tags: [Auth]
+ *     responses:
+ *       200: { description: Email verified }
+ *       401: { description: Token invalid or expired }
+ */
+router.post('/auth/verify-email', validateDto(VerifyEmailDto), controller.verifyEmail);
+
+/**
+ * @openapi
+ * /auth/verify-email/resend:
+ *   post:
+ *     summary: Resends the verification email for a still-unverified account
+ *     tags: [Auth]
+ *     responses:
+ *       202: { description: Accepted (always, regardless of whether the email exists) }
+ */
+router.post('/auth/verify-email/resend', validateDto(ResendVerificationDto), controller.resendVerification);
 
 /**
  * @openapi

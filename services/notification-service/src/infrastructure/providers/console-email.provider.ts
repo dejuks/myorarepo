@@ -9,6 +9,8 @@ import { logger } from '@common/logger/logger';
  */
 export class ConsoleEmailProvider implements IEmailProvider {
   async send(input: SendEmailInput): Promise<void> {
-    logger.info({ to: input.to, subject: input.subject }, 'Email dispatched (console provider — not actually sent)');
+    // `body` is included deliberately — this is the only way to grab a verification
+    // link or password-reset code in local dev, since nothing is actually delivered.
+    logger.info({ to: input.to, subject: input.subject, body: input.body }, 'Email dispatched (console provider — not actually sent)');
   }
 }

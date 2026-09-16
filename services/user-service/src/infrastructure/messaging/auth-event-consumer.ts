@@ -19,22 +19,26 @@ const QUEUE_SUFFIX = 'auth-events';
 /**
  * Subscribes to auth-service's `ora.auth.events` exchange so a profile
  * created via POST /users (which always starts life as PENDING, see
- * domain/entities/user.entity.ts) is automatically activated once the
- * matching login credentials exist in auth-service — there is no separate
- * email-verification step in this platform today, so "credentials were
- * successfully registered" IS the activation signal. This is deliberately
- * async/eventually-consistent (same pattern as every other cross-service
- * reaction in this platform, see docs/01-architecture.md §5) rather than a
- * new synchronous call back into user-service, which would need a whole
- * new internal-service auth mechanism (auth-service has no user JWT yet at
- * registration time) for a one-field update that can tolerate a short
- * delay.
+ * domain/entities/user.entity.ts) is automatically activated once — and
+ * only once — its owner has verified their email address in auth-service
+ * (`POST /auth/verify-email`, which publishes `auth.email_verification.completed`).
+ * Merely registering credentials (`auth.registered`) is NOT the activation
+ * signal — that fires immediately at registration, before the person has
+ * proven they control the email address, and auth-service's login now
+ * rejects PENDING_VERIFICATION accounts outright (see auth-service's
+ * `assertAccountIsUsable`). This is deliberately async/eventually-consistent
+ * (same pattern as every other cross-service reaction in this platform, see
+ * docs/01-architecture.md §5) rather than a new synchronous call back into
+ * user-service, which would need a whole new internal-service auth
+ * mechanism (auth-service has no user JWT at verification time either) for
+ * a one-field update that can tolerate a short delay.
  *
  * One durable queue bound to auth-service's exchange with '#' (mirrors
- * notification-service's NotificationEventConsumer) — only `auth.registered`
- * is acted on today; every other routing key on that exchange is ignored,
- * not an error, so this consumer never needs to change just because
- * auth-service adds new event types.
+ * notification-service's NotificationEventConsumer) — only
+ * `auth.email_verification.completed` is acted on today; every other
+ * routing key on that exchange (including `auth.registered`) is
+ * intentionally ignored, not an error, so this consumer never needs to
+ * change just because auth-service adds new event types.
  */
 export class AuthEventConsumer {
   private connection: ChannelModel | null = null;
@@ -79,23 +83,25 @@ export class AuthEventConsumer {
     try {
       const envelope = JSON.parse(msg.content.toString()) as EventEnvelope;
 
-      if (envelope.eventType === 'auth.registered') {
-        await this.handleAuthRegistered(envelope);
+      if (envelope.eventType === 'auth.email_verification.completed') {
+        await this.handleEmailVerified(envelope);
       }
-      // Every other routing key on this exchange is intentionally ignored.
+      // Every other routing key on this exchange is intentionally ignored,
+      // in particular auth.registered — see the class doc comment above.
 
       channel.ack(msg);
     } catch (err) {
       if (err instanceof NotFoundError) {
         // The profile hasn't landed yet relative to this event (should be rare — the
         // registration flow always creates the profile via POST /users before calling
-        // POST /auth/register) or it was deleted. Not retryable by redelivery timing
-        // alone; dead-letter it so it's visible rather than looping forever.
-        logger.warn({ err }, 'auth.registered referenced a user profile that does not exist — dead-lettering');
+        // POST /auth/register, and verification can only happen after that) or it was
+        // deleted. Not retryable by redelivery timing alone; dead-letter it so it's
+        // visible rather than looping forever.
+        logger.warn({ err }, 'auth.email_verification.completed referenced a user profile that does not exist — dead-lettering');
       } else if (err instanceof AppError) {
         // e.g. the user is already SUSPENDED/DEACTIVATED — a terminal or conflicting
         // state that redelivery cannot fix. Log and drop rather than retry forever.
-        logger.warn({ err }, 'Could not auto-activate user from auth.registered — dropping');
+        logger.warn({ err }, 'Could not activate user from auth.email_verification.completed — dropping');
       } else {
         logger.error({ err }, 'Failed to process inbound auth event — sending to dead-letter queue');
       }
@@ -103,10 +109,10 @@ export class AuthEventConsumer {
     }
   }
 
-  private async handleAuthRegistered(envelope: EventEnvelope): Promise<void> {
+  private async handleEmailVerified(envelope: EventEnvelope): Promise<void> {
     const userId = envelope.payload.userId as string | undefined;
     if (!userId) {
-      logger.warn({ envelope }, 'auth.registered event missing userId — ignoring');
+      logger.warn({ envelope }, 'auth.email_verification.completed event missing userId — ignoring');
       return;
     }
 
@@ -114,16 +120,16 @@ export class AuthEventConsumer {
     if (user.status !== UserStatus.PENDING) {
       // Already activated (or moved past PENDING some other way) — a redelivered or
       // duplicate message is a no-op, not re-published as a fresh user.status_changed.
-      logger.debug({ userId, status: user.status }, 'auth.registered received for a non-PENDING user — skipping');
+      logger.debug({ userId, status: user.status }, 'auth.email_verification.completed received for a non-PENDING user — skipping');
       return;
     }
 
     await this.userService.changeStatus(
       userId,
-      { status: UserStatus.ACTIVE, reason: 'Auto-activated: login credentials registered in auth-service' },
+      { status: UserStatus.ACTIVE, reason: 'Auto-activated: email verified in auth-service' },
       'system:auth-event-consumer',
     );
-    logger.info({ userId }, 'User auto-activated after auth.registered');
+    logger.info({ userId }, 'User auto-activated after email verification');
   }
 
   async stop(): Promise<void> {

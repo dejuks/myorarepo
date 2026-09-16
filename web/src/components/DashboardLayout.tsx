@@ -33,9 +33,10 @@ import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useMyManagedModules } from '@/hooks/useMyManagedModules';
 import { logout as logoutRequest } from '@/api/authApi';
 import { loggedOut } from '@/features/auth/authSlice';
-import { MODULES } from '@/config/modules';
+import type { ModuleConfig } from '@/config/modules';
 
 const DRAWER_WIDTH = 240;
 
@@ -72,12 +73,17 @@ const moduleIcons: Record<string, ReactNode> = {
  * services exist. They're not full content-management UIs yet (no manuscript
  * submission, cataloging, etc. — just each module's standalone RBAC), so the
  * label makes that explicit rather than implying more than what's there.
+ * Built from `useMyManagedModules()` — platform ADMIN sees all six, anyone
+ * else sees only the modules where they hold that module's own top role
+ * (see ModuleRoute, which enforces the same set at the route level).
  */
-const moduleNavItems: NavItem[] = MODULES.map((mod) => ({
-  label: `${mod.label} — Roles`,
-  to: `/admin/modules/${mod.key}`,
-  icon: moduleIcons[mod.key] ?? <ArticleIcon />,
-}));
+function buildModuleNavItems(modules: ModuleConfig[]): NavItem[] {
+  return modules.map((mod) => ({
+    label: `${mod.label} — Roles`,
+    to: `/admin/modules/${mod.key}`,
+    icon: moduleIcons[mod.key] ?? <ArticleIcon />,
+  }));
+}
 
 export function DashboardLayout() {
   const dispatch = useAppDispatch();
@@ -88,6 +94,8 @@ export function DashboardLayout() {
   const { data: unreadCount } = useUnreadCount();
   const { data: currentUser } = useCurrentUser();
   const isAdmin = useIsAdmin();
+  const { modules: managedModules } = useMyManagedModules();
+  const moduleNavItems = buildModuleNavItems(managedModules);
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
@@ -200,7 +208,7 @@ export function DashboardLayout() {
               </List>
             </>
           )}
-          {isAdmin && (
+          {managedModules.length > 0 && (
             <>
               <Divider />
               <List

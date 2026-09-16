@@ -6,6 +6,8 @@ import { RefreshTokenDto } from '@application/dto/refresh-token.dto';
 import { ChangePasswordDto } from '@application/dto/change-password.dto';
 import { RequestPasswordResetDto } from '@application/dto/request-password-reset.dto';
 import { ResetPasswordDto } from '@application/dto/reset-password.dto';
+import { VerifyEmailDto } from '@application/dto/verify-email.dto';
+import { ResendVerificationDto } from '@application/dto/resend-verification.dto';
 import { VerifyMfaDto } from '@application/dto/verify-mfa.dto';
 import { AuthenticatedRequest } from '@api/middleware/auth.middleware';
 import { decodeTokenExpiry } from '@common/utils/token.util';
@@ -95,6 +97,24 @@ export class AuthController {
     try {
       await this.authService.resetPassword(req.body);
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  verifyEmail = async (req: Request<unknown, unknown, VerifyEmailDto>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.authService.verifyEmail(req.body);
+      res.status(200).json({ success: true, message: 'Email verified — you can now log in.' });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  resendVerification = async (req: Request<unknown, unknown, ResendVerificationDto>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.authService.resendVerificationEmail(req.body.email);
+      res.status(202).json({ success: true, message: 'If that email has a pending, unverified account, a new verification link has been sent.' });
     } catch (err) {
       next(err);
     }

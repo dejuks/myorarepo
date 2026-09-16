@@ -66,6 +66,8 @@ export class InitNotificationSchema1737000200000 implements MigrationInterface {
         ('PASSWORD_RESET_COMPLETED', 'IN_APP', NULL, 'Your password was successfully reset.'),
         ('PASSWORD_CHANGED', 'EMAIL', 'Your ORA Platform password was changed', 'Your account password was just changed. If this was not you, contact support immediately.'),
         ('PASSWORD_CHANGED', 'IN_APP', NULL, 'Your password was changed.'),
+        ('EMAIL_VERIFICATION_REQUESTED', 'EMAIL', 'Verify your ORA Platform email address', 'Welcome to ORA! Click the link below to verify your email and activate your account: {{verificationUrl}} . This link expires at {{expiresAt}}. If you did not create this account, ignore this email.'),
+        ('EMAIL_VERIFICATION_COMPLETED', 'IN_APP', NULL, 'Your email is verified — your account is now active.'),
         ('PROFILE_CREATED', 'IN_APP', NULL, 'Your profile has been created. Complete it to get the most out of ORA.'),
         ('ROLE_ASSIGNED', 'IN_APP', NULL, 'You were granted the {{role}} role.'),
         ('ACCOUNT_STATUS_CHANGED', 'EMAIL', 'Your ORA Platform account status changed', 'Your account status is now {{status}}.'),

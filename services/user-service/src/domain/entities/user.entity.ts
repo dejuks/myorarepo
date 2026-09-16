@@ -1,11 +1,12 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
 export enum UserStatus {
-  // Profile created, awaiting login credentials in auth-service. Auto-transitions to
-  // ACTIVE once auth-service publishes `auth.registered` — see
-  // infrastructure/messaging/auth-event-consumer.ts. There is no separate
-  // email-verification step in this platform today; successful credential
-  // registration IS the activation signal.
+  // Profile created, awaiting the account owner to verify their email in
+  // auth-service. Auto-transitions to ACTIVE once auth-service publishes
+  // `auth.email_verification.completed` (after `POST /auth/verify-email`
+  // succeeds) — see infrastructure/messaging/auth-event-consumer.ts.
+  // Merely registering credentials is NOT enough; auth-service's login
+  // rejects PENDING_VERIFICATION accounts until this happens.
   PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED', // temporary, admin-imposed

@@ -11,6 +11,8 @@ export const EVENT_TEMPLATE_MAP: Record<string, { templateCode: string; channels
   'auth.password.reset_requested': { templateCode: 'PASSWORD_RESET_REQUESTED', channels: [NotificationChannel.EMAIL] },
   'auth.password.reset_completed': { templateCode: 'PASSWORD_RESET_COMPLETED', channels: [NotificationChannel.EMAIL, NotificationChannel.IN_APP] },
   'auth.password.changed': { templateCode: 'PASSWORD_CHANGED', channels: [NotificationChannel.EMAIL, NotificationChannel.IN_APP] },
+  'auth.email_verification.requested': { templateCode: 'EMAIL_VERIFICATION_REQUESTED', channels: [NotificationChannel.EMAIL] },
+  'auth.email_verification.completed': { templateCode: 'EMAIL_VERIFICATION_COMPLETED', channels: [NotificationChannel.IN_APP] },
   'user.registered': { templateCode: 'PROFILE_CREATED', channels: [NotificationChannel.IN_APP] },
   'user.role_assigned': { templateCode: 'ROLE_ASSIGNED', channels: [NotificationChannel.IN_APP] },
   'user.status_changed': { templateCode: 'ACCOUNT_STATUS_CHANGED', channels: [NotificationChannel.EMAIL, NotificationChannel.IN_APP] },

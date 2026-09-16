@@ -10,7 +10,7 @@ jest.mock('@infrastructure/messaging/rabbitmq.publisher', () => ({
 /**
  * These tests exercise the consumer's message-handling logic directly
  * (bypassing amqplib entirely, same rationale as auth-service/notification-service's
- * lack of a live-broker test) — `handleMessage` and `handleAuthRegistered` never
+ * lack of a live-broker test) — `handleMessage` and `handleEmailVerified` never
  * touch `this.connection`, only `bindAndConsume`/`start` do, so a fake channel and a
  * hand-built envelope are enough to cover the real decision logic: activate on a
  * PENDING user, no-op (and no channel.nack) on an already-active user, and
@@ -45,10 +45,10 @@ describe('AuthEventConsumer', () => {
     };
   }
 
-  it('activates a PENDING user on auth.registered', async () => {
+  it('activates a PENDING user on auth.email_verification.completed', async () => {
     const user = await userRepo.create({ email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe', status: UserStatus.PENDING });
 
-    const msg = envelopeMessage('auth.registered', { userId: user.id, email: user.email });
+    const msg = envelopeMessage('auth.email_verification.completed', { userId: user.id, email: user.email });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (consumer as any).handleMessage(channel, msg);
 
@@ -61,7 +61,7 @@ describe('AuthEventConsumer', () => {
   it('is a no-op for a user that is already ACTIVE (idempotent redelivery)', async () => {
     const user = await userRepo.create({ email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe', status: UserStatus.ACTIVE });
 
-    const msg = envelopeMessage('auth.registered', { userId: user.id, email: user.email });
+    const msg = envelopeMessage('auth.email_verification.completed', { userId: user.id, email: user.email });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (consumer as any).handleMessage(channel, msg);
 
@@ -74,7 +74,7 @@ describe('AuthEventConsumer', () => {
   it('leaves a DEACTIVATED user alone rather than throwing', async () => {
     const user = await userRepo.create({ email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe', status: UserStatus.DEACTIVATED });
 
-    const msg = envelopeMessage('auth.registered', { userId: user.id, email: user.email });
+    const msg = envelopeMessage('auth.email_verification.completed', { userId: user.id, email: user.email });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (consumer as any).handleMessage(channel, msg);
 
@@ -83,8 +83,8 @@ describe('AuthEventConsumer', () => {
     expect(channel.ack).toHaveBeenCalledTimes(1);
   });
 
-  it('dead-letters an auth.registered event referencing a user that does not exist', async () => {
-    const msg = envelopeMessage('auth.registered', { userId: 'no-such-user', email: 'nobody@example.com' });
+  it('dead-letters an auth.email_verification.completed event referencing a user that does not exist', async () => {
+    const msg = envelopeMessage('auth.email_verification.completed', { userId: 'no-such-user', email: 'nobody@example.com' });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (consumer as any).handleMessage(channel, msg);
 
@@ -92,7 +92,7 @@ describe('AuthEventConsumer', () => {
     expect(channel.ack).not.toHaveBeenCalled();
   });
 
-  it('ignores routing keys other than auth.registered', async () => {
+  it('ignores routing keys other than auth.email_verification.completed', async () => {
     const user = await userRepo.create({ email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe', status: UserStatus.PENDING });
 
     const msg = envelopeMessage('auth.password_changed', { userId: user.id });

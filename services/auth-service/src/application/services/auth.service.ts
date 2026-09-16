@@ -2,6 +2,7 @@ import { authenticator } from 'otplib';
 import { IUserCredentialRepository } from '@domain/repositories/user-credential.repository.interface';
 import { IRefreshTokenRepository } from '@domain/repositories/refresh-token.repository.interface';
 import { IPasswordResetTokenRepository } from '@domain/repositories/password-reset-token.repository.interface';
+import { IEmailVerificationTokenRepository } from '@domain/repositories/email-verification-token.repository.interface';
 import { IAuthAuditLogRepository } from '@domain/repositories/auth-audit-log.repository.interface';
 import { AccountStatus } from '@domain/entities/user-credential.entity';
 import { AuthAuditEventType } from '@domain/entities/auth-audit-log.entity';
@@ -9,6 +10,7 @@ import { RegisterDto } from '@application/dto/register.dto';
 import { LoginDto } from '@application/dto/login.dto';
 import { ChangePasswordDto } from '@application/dto/change-password.dto';
 import { ResetPasswordDto } from '@application/dto/reset-password.dto';
+import { VerifyEmailDto } from '@application/dto/verify-email.dto';
 import { AuthResponseDto } from '@application/dto/auth-response.dto';
 import { hashPassword, comparePassword } from '@common/utils/password.util';
 import {
@@ -27,6 +29,7 @@ import { logger } from '@common/logger/logger';
 
 const ACCOUNT_LOCK_THRESHOLD = 5;
 const ACCOUNT_LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — longer-lived than the 30-minute password-reset token since it's less time-sensitive
 
 export interface RequestContext {
   ipAddress?: string | null;
@@ -44,6 +47,7 @@ export class AuthService {
     private readonly userCredentialRepo: IUserCredentialRepository,
     private readonly refreshTokenRepo: IRefreshTokenRepository,
     private readonly passwordResetTokenRepo: IPasswordResetTokenRepository,
+    private readonly emailVerificationTokenRepo: IEmailVerificationTokenRepository,
     private readonly auditLogRepo: IAuthAuditLogRepository,
   ) {}
 
@@ -67,10 +71,87 @@ export class AuthService {
       accountStatus: AccountStatus.PENDING_VERIFICATION,
     });
 
+    // auth.registered is kept for consumers that just want to know an account exists (e.g. a
+    // welcome notification) — it does NOT mean the account is usable yet. Nothing may treat
+    // it as an activation signal; see sendVerificationEmail for the real activation trigger.
     await rabbitMqPublisher.publish('auth.registered', { userId: credential.userId, email: credential.email });
     await this.auditLogRepo.record({ userId: credential.userId, eventType: AuthAuditEventType.LOGIN_SUCCESS, metadata: { action: 'register' } });
 
+    await this.sendVerificationEmail(credential.userId, credential.email);
+
     return { userId: credential.userId };
+  }
+
+  /**
+   * Issues a one-time email-verification token and publishes the event
+   * notification-service turns into the actual email — same pattern as
+   * requestPasswordReset. Called once automatically at the end of
+   * register(), and again by resendVerificationEmail() if the first email
+   * is lost or the token expires before the user clicks it.
+   */
+  private async sendVerificationEmail(userId: string, email: string): Promise<void> {
+    const rawToken = generateSecureRandomToken();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS);
+
+    await this.emailVerificationTokenRepo.invalidateAllForUser(userId);
+    await this.emailVerificationTokenRepo.create({ userId, tokenHash, expiresAt });
+
+    await this.auditLogRepo.record({ userId, eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED });
+
+    await rabbitMqPublisher.publish('auth.email_verification.requested', {
+      userId,
+      email,
+      verificationUrl: `${env.FRONTEND_URL}/verify-email?token=${rawToken}`,
+      expiresAt,
+    });
+  }
+
+  /**
+   * Resends the verification email for an unverified account. Always
+   * resolves successfully regardless of whether the email exists or is
+   * already verified — same no-enumeration posture as requestPasswordReset.
+   */
+  async resendVerificationEmail(email: string): Promise<void> {
+    const credential = await this.userCredentialRepo.findByEmail(email);
+    if (!credential || credential.accountStatus !== AccountStatus.PENDING_VERIFICATION) {
+      logger.info({ email }, 'Verification resend requested for an unknown or already-verified email — no-op response returned');
+      return;
+    }
+
+    await this.sendVerificationEmail(credential.userId, credential.email);
+  }
+
+  /**
+   * Completes email verification: the ONLY thing that moves an account out
+   * of PENDING_VERIFICATION (there is no other path — see assertAccountIsUsable,
+   * which now blocks login until this has happened). Publishes
+   * auth.email_verification.completed, which user-service consumes to flip
+   * the matching profile PENDING -> ACTIVE (see
+   * services/user-service/src/infrastructure/messaging/auth-event-consumer.ts).
+   */
+  async verifyEmail(dto: VerifyEmailDto): Promise<void> {
+    const tokenHash = hashToken(dto.token);
+    const stored = await this.emailVerificationTokenRepo.findByTokenHash(tokenHash);
+
+    if (!stored || stored.usedAt || stored.expiresAt < new Date()) {
+      throw new UnauthorizedError('Verification link is invalid or has expired');
+    }
+
+    const credential = await this.userCredentialRepo.findByUserId(stored.userId);
+    if (!credential) throw new NotFoundError('Account not found');
+
+    await this.emailVerificationTokenRepo.markUsed(stored.id);
+
+    if (credential.accountStatus !== AccountStatus.PENDING_VERIFICATION) {
+      // Already verified (e.g. the link was clicked twice, or in two tabs) — idempotent no-op,
+      // not an error, and no need to re-publish the completion event.
+      return;
+    }
+
+    await this.userCredentialRepo.update(credential.id, { accountStatus: AccountStatus.ACTIVE, emailVerifiedAt: new Date() });
+    await this.auditLogRepo.record({ userId: credential.userId, eventType: AuthAuditEventType.EMAIL_VERIFICATION_COMPLETED });
+    await rabbitMqPublisher.publish('auth.email_verification.completed', { userId: credential.userId, email: credential.email });
   }
 
   /**
@@ -276,6 +357,9 @@ export class AuthService {
     }
     if (status === AccountStatus.LOCKED || (lockedUntil && lockedUntil > new Date())) {
       throw new ForbiddenError('This account is temporarily locked. Try again later.');
+    }
+    if (status === AccountStatus.PENDING_VERIFICATION) {
+      throw new ForbiddenError('Please verify your email before logging in. Check your inbox for the verification link, or request a new one.');
     }
   }
 

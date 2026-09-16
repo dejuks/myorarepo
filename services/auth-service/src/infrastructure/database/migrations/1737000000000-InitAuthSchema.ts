@@ -21,7 +21,8 @@ export class InitAuthSchema1737000000000 implements MigrationInterface {
       CREATE TYPE auth_audit_event_type_enum AS ENUM (
         'LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'TOKEN_REFRESH',
         'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED',
-        'ACCOUNT_LOCKED', 'MFA_ENABLED', 'MFA_DISABLED'
+        'ACCOUNT_LOCKED', 'MFA_ENABLED', 'MFA_DISABLED',
+        'EMAIL_VERIFICATION_REQUESTED', 'EMAIL_VERIFICATION_COMPLETED'
       );
     `);
 
@@ -72,6 +73,18 @@ export class InitAuthSchema1737000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
+      CREATE TABLE email_verification_tokens (
+        id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id                UUID NOT NULL,
+        token_hash             VARCHAR NOT NULL UNIQUE,
+        expires_at             TIMESTAMPTZ NOT NULL,
+        used_at                TIMESTAMPTZ,
+        created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
+    `);
+
+    await queryRunner.query(`
       CREATE TABLE auth_audit_logs (
         id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id        UUID,
@@ -88,6 +101,7 @@ export class InitAuthSchema1737000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS auth_audit_logs;`);
+    await queryRunner.query(`DROP TABLE IF EXISTS email_verification_tokens;`);
     await queryRunner.query(`DROP TABLE IF EXISTS password_reset_tokens;`);
     await queryRunner.query(`DROP TABLE IF EXISTS refresh_tokens;`);
     await queryRunner.query(`DROP TABLE IF EXISTS user_credentials;`);

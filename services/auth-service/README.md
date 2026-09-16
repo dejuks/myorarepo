@@ -4,7 +4,17 @@ Owns credentials, tokens, MFA, and login sessions for the ORA Digital Platform. 
 
 ## Responsibilities
 
-Registers login credentials for a userId created by `user-service`; authenticates email/password (+ optional TOTP MFA); issues short-lived access tokens and rotating refresh tokens; supports logout (single device and all devices); supports password change and self-service password reset; enforces per-account lockout and per-IP rate limiting on login. It does not store user profile data — see the identity/profile split in the architecture doc.
+Registers login credentials for a userId created by `user-service`; authenticates email/password (+ optional TOTP MFA); issues short-lived access tokens and rotating refresh tokens; supports logout (single device and all devices); supports password change and self-service password reset; requires email verification before an account can log in; enforces per-account lockout and per-IP rate limiting on login. It does not store user profile data — see the identity/profile split in the architecture doc.
+
+### Email verification
+
+Every new account starts `PENDING_VERIFICATION` and **login is rejected** (`assertAccountIsUsable` in `auth.service.ts`) until it's verified — there is no way around this except verifying or an admin manually activating the `user-service` profile. The flow mirrors the existing password-reset token pattern exactly:
+
+1. `register()` generates a random 256-bit token, stores only its SHA-256 hash (`email_verification_tokens` table, 24-hour expiry), and publishes `auth.email_verification.requested` with the **raw** token embedded in a ready-made link (`{FRONTEND_URL}/verify-email?token=...`) — notification-service turns that into an actual email (console-logged in dev, since `EMAIL_PROVIDER=console` by default; see notification-service's README).
+2. Clicking the link hits the frontend's `/verify-email` page, which calls `POST /auth/verify-email { token }`. On success this is the **only** thing that flips `PENDING_VERIFICATION` → `ACTIVE` here, and publishes `auth.email_verification.completed`, which `user-service` consumes to activate the matching profile (see `services/user-service/README.md` "Auto-activation").
+3. If the link is lost or the 24-hour token expires, `POST /auth/verify-email/resend { email }` issues a fresh one (invalidating the previous one first) — same no-account-enumeration posture as password-reset (always 202, regardless of whether the email exists or is already verified).
+
+This applies identically whether the account was created via self-registration or an admin/module-admin's "Create user" action — the person who owns that email address still has to prove it before the account can log in.
 
 ## Quick start
 
@@ -30,7 +40,7 @@ npm run test:cov   # with coverage
 
 ## API surface
 
-All business endpoints are versioned under `/api/v1`; `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `POST /auth/mfa/enroll`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`. `GET /health` and `GET /health/ready` are unversioned, for the container orchestrator. Full request/response schemas are in Swagger UI at `/api-docs` once the service is running.
+All business endpoints are versioned under `/api/v1`; `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `POST /auth/verify-email`, `POST /auth/verify-email/resend`, `POST /auth/mfa/enroll`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`. `GET /health` and `GET /health/ready` are unversioned, for the container orchestrator. Full request/response schemas are in Swagger UI at `/api-docs` once the service is running.
 
 ## Super-admin bootstrap
 

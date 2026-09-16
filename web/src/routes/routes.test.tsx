@@ -5,6 +5,7 @@ import { renderWithProviders } from '@/test/renderWithProviders';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { PublicRoute } from '@/routes/PublicRoute';
 import { AdminRoute } from '@/routes/AdminRoute';
+import { ModuleRoute } from '@/routes/ModuleRoute';
 import { UserStatus } from '@/types/domain';
 import type { User } from '@/types/domain';
 
@@ -12,8 +13,13 @@ vi.mock('@/api/userApi', async () => {
   const actual = await vi.importActual<typeof import('@/api/userApi')>('@/api/userApi');
   return { ...actual, getMe: vi.fn() };
 });
+vi.mock('@/api/moduleApi', async () => {
+  const actual = await vi.importActual<typeof import('@/api/moduleApi')>('@/api/moduleApi');
+  return { ...actual, listMemberRoles: vi.fn() };
+});
 
 import { getMe } from '@/api/userApi';
+import { listMemberRoles } from '@/api/moduleApi';
 
 function buildUser(roles: string[]): User {
   return {
@@ -134,5 +140,54 @@ describe('AdminRoute', () => {
 
     resolveGetMe(buildUser(['ADMIN']));
     await waitFor(() => expect(screen.getByText('Admin page')).toBeInTheDocument());
+  });
+});
+
+function ModuleStub() {
+  return <div>Module page</div>;
+}
+
+function ModuleTestApp() {
+  return (
+    <Routes>
+      <Route path="/dashboard" element={<DashboardStub />} />
+      <Route element={<ModuleRoute />}>
+        <Route path="/admin/modules/:moduleKey" element={<ModuleStub />} />
+      </Route>
+    </Routes>
+  );
+}
+
+describe('ModuleRoute', () => {
+  it('lets a platform ADMIN reach any module dashboard without checking its member-roles endpoint', async () => {
+    vi.mocked(getMe).mockResolvedValueOnce(buildUser(['USER', 'ADMIN']));
+    renderWithProviders(<ModuleTestApp />, { route: '/admin/modules/journal', preloadedAuth: { isAuthenticated: true } });
+
+    expect(await screen.findByText('Module page')).toBeInTheDocument();
+    expect(listMemberRoles).not.toHaveBeenCalled();
+  });
+
+  it('lets a user holding that module\'s own top role reach its dashboard', async () => {
+    vi.mocked(getMe).mockResolvedValueOnce(buildUser(['USER']));
+    vi.mocked(listMemberRoles).mockResolvedValue(['JOURNAL_MANAGER']);
+    renderWithProviders(<ModuleTestApp />, { route: '/admin/modules/journal', preloadedAuth: { isAuthenticated: true } });
+
+    expect(await screen.findByText('Module page')).toBeInTheDocument();
+  });
+
+  it('redirects a user with neither global ADMIN nor the module top role to /dashboard', async () => {
+    vi.mocked(getMe).mockResolvedValueOnce(buildUser(['USER']));
+    vi.mocked(listMemberRoles).mockResolvedValue([]);
+    renderWithProviders(<ModuleTestApp />, { route: '/admin/modules/journal', preloadedAuth: { isAuthenticated: true } });
+
+    expect(await screen.findByText('Dashboard page')).toBeInTheDocument();
+    expect(screen.queryByText('Module page')).not.toBeInTheDocument();
+  });
+
+  it('lets an unrecognized module key render through so the page can show its own "unknown module" error', async () => {
+    vi.mocked(getMe).mockResolvedValueOnce(buildUser(['USER']));
+    renderWithProviders(<ModuleTestApp />, { route: '/admin/modules/not-a-real-module', preloadedAuth: { isAuthenticated: true } });
+
+    expect(await screen.findByText('Module page')).toBeInTheDocument();
   });
 });

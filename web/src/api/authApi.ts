@@ -51,6 +51,16 @@ export function confirmPasswordReset(token: string, newPassword: string): Promis
   return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/password-reset/confirm', { token, newPassword }));
 }
 
+/** Completes email verification — the only thing that lets a newly-registered account log in. */
+export function verifyEmail(token: string): Promise<void> {
+  return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/verify-email', { token }));
+}
+
+/** Resends the verification email for a still-unverified account. Always resolves (no account enumeration). */
+export function resendVerificationEmail(email: string): Promise<void> {
+  return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/verify-email/resend', { email }));
+}
+
 export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;

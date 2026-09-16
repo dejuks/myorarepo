@@ -11,6 +11,8 @@ export enum AuthAuditEventType {
   ACCOUNT_LOCKED = 'ACCOUNT_LOCKED',
   MFA_ENABLED = 'MFA_ENABLED',
   MFA_DISABLED = 'MFA_DISABLED',
+  EMAIL_VERIFICATION_REQUESTED = 'EMAIL_VERIFICATION_REQUESTED',
+  EMAIL_VERIFICATION_COMPLETED = 'EMAIL_VERIFICATION_COMPLETED',
 }
 
 /** Immutable audit trail for security-sensitive events; consumed by monitoring-service via events, kept here as the source of truth. */

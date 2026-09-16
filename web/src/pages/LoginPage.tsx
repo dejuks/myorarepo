@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAppDispatch } from '@/app/hooks';
-import { login as loginRequest } from '@/api/authApi';
+import { login as loginRequest, resendVerificationEmail } from '@/api/authApi';
 import { credentialsReceived } from '@/features/auth/authSlice';
 import { isValidEmail } from '@/utils/validation';
 import type { ApiErrorInfo } from '@/types/api';
@@ -19,6 +19,11 @@ import type { ApiErrorInfo } from '@/types/api';
 interface LocationState {
   from?: { pathname: string };
   registered?: boolean;
+}
+
+/** Matches auth-service's assertAccountIsUsable message for PENDING_VERIFICATION, without hardcoding the whole sentence. */
+function looksLikeUnverifiedEmailError(message: string | undefined): boolean {
+  return Boolean(message?.toLowerCase().includes('verify your email'));
 }
 
 interface FieldErrors {
@@ -36,9 +41,13 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [resendSent, setResendSent] = useState(false);
 
   const mutation = useMutation({
     mutationFn: loginRequest,
+  });
+  const resendMutation = useMutation({
+    mutationFn: () => resendVerificationEmail(email.trim()),
   });
 
   function validate(): boolean {
@@ -55,9 +64,15 @@ export function LoginPage() {
     return Object.keys(errors).length === 0;
   }
 
+  function handleResend() {
+    setResendSent(false);
+    resendMutation.mutate(undefined, { onSuccess: () => setResendSent(true) });
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSubmitError(null);
+    setResendSent(false);
     if (!validate()) return;
 
     mutation.mutate(
@@ -80,12 +95,25 @@ export function LoginPage() {
     <AuthLayout title="Sign in" subtitle="Welcome back — sign in to continue.">
       {state?.registered && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Account created. Sign in with your new credentials.
+          Account created. Check your email for a verification link before signing in.
         </Alert>
       )}
       {submitError && (
         <Alert severity="error" sx={{ mb: 2 }} data-testid="login-error">
           {submitError}
+          {looksLikeUnverifiedEmailError(submitError) && (
+            <Box sx={{ mt: 1 }}>
+              {resendSent ? (
+                <Typography variant="body2" data-testid="resend-verification-sent">
+                  If that email has a pending, unverified account, a new verification link has been sent.
+                </Typography>
+              ) : (
+                <Link component="button" type="button" variant="body2" onClick={handleResend} data-testid="resend-verification-link">
+                  {resendMutation.isPending ? 'Sending…' : 'Resend verification email'}
+                </Link>
+              )}
+            </Box>
+          )}
         </Alert>
       )}
       <Box component="form" onSubmit={handleSubmit} noValidate>
