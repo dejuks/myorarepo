@@ -1,0 +1,23 @@
+# Standalone compose file for running just the frontend against an
+# already-running backend (e.g. `docker compose -f infra/docker-compose.yml up`
+# in another terminal, or a backend running outside Docker on :8080).
+#
+# Usage (from the web/ directory):
+#   docker compose up --build
+# Then open http://localhost:3000
+#
+# VITE_API_BASE_URL is a build-time value (Vite inlines it into the bundle),
+# so changing it requires a rebuild — override it via a .env file here or
+# `VITE_API_BASE_URL=... docker compose up --build`.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+    container_name: ora-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"

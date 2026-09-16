@@ -36,6 +36,7 @@ Everything is now reachable in your browser:
 
 | What | URL |
 |---|---|
+| Web frontend (login / register / dashboard) | http://localhost:3000 |
 | Gateway health (aggregates all services) | http://localhost:8080/health/ready |
 | Auth Service Swagger UI | http://localhost:4001/api-docs |
 | User Service Swagger UI | http://localhost:4002/api-docs |
@@ -66,6 +67,20 @@ Swagger UI is fully interactive — click "Try it out" on any endpoint, fill in 
 ### Going through the gateway instead
 
 Every one of the calls above also works prefixed with the gateway's port instead of a service's own port — e.g. `POST http://localhost:8080/api/v1/auth/login` — which is what a real frontend would call. The gateway forwards it to auth-service and adds the edge-level checks (rate limiting, JWT pre-check).
+
+### Using the web frontend instead of Swagger
+
+The `web/` app (React + TypeScript + MUI, built with Vite) is the real client for everything above. It's included in `infra/docker-compose.yml` (service `web`, built from `../web`), so `docker compose up --build` from `infra/` brings it up alongside everything else at **http://localhost:3000**. To run only the frontend against a backend that's already up, use `web/docker-compose.yml` instead (`cd web && docker compose up --build`).
+
+The same end-to-end flow as above, but through the UI:
+
+1. Open http://localhost:3000 — you'll land on `/login`, which redirects to `/register` if you follow the "Create one" link.
+2. On **Register**, fill in first name, last name, email, and a password meeting the live policy hint (uppercase, lowercase, digit, special character, 8-72 chars), confirm it, and submit. This drives the same two-step flow as the manual Swagger steps above — `POST /users` in user-service, then `POST /auth/register` in auth-service, using one generated UUID for both — then redirects you to `/login` with a success message.
+3. On **Login**, sign in with that email/password. You're redirected to `/dashboard`.
+4. The dashboard shell shows an `AppBar` (with a notifications bell and unread-count badge) and a `Drawer` with links to Dashboard, Profile, and Notifications — plus greyed-out "coming soon" entries for Journals, Ebooks, Library, Researcher Network, and Wiki, since those services don't exist yet.
+5. **Profile** (`/profile`) shows your real `GET /users/me` fields, with a small "Edit name" form wired to `PATCH /users/:id`.
+6. **Notifications** (`/notifications`) lists `GET /notifications` (the same welcome notifications from step 5 of the Swagger flow above), with "mark all read" and per-item mark-read actions.
+7. Refreshing the page keeps you logged in — the frontend persists only the refresh token (not the access token) to `localStorage` and silently calls `/auth/refresh` on load. Logging out (via the account menu) calls `POST /auth/logout` and clears local state.
 
 ## 4. Shut down
 

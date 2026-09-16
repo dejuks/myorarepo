@@ -8,6 +8,7 @@
 #   docker compose -f infra/docker-compose.yml up --build
 #
 # Then open, in a browser:
+#   http://localhost:3000                -> web frontend (login/register/dashboard)
 #   http://localhost:8080/health/ready   -> gateway's aggregated health check
 #   http://localhost:4001/api-docs       -> auth-service Swagger UI
 #   http://localhost:4002/api-docs       -> user-service Swagger UI
@@ -286,6 +287,26 @@ services:
       - user-service
       - notification-service
       - search-service
+    networks: [ora-network]
+
+  # ---------------------------------------------------------------------
+  # web — the React frontend (auth flows + dashboard shell), served as
+  # static files behind Nginx. Vite bakes VITE_* env vars into the bundle
+  # at BUILD time (unlike every backend service's runtime env vars), so
+  # the gateway URL is passed as a build-arg rather than a container env
+  # var — see web/Dockerfile.
+  # ---------------------------------------------------------------------
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080/api/v1
+    container_name: ora-web
+    restart: unless-stopped
+    ports: ["3000:80"]
+    depends_on:
+      - gateway
     networks: [ora-network]
 
 networks:

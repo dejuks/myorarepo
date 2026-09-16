@@ -1,12 +1,24 @@
-import { cleanEnv, str, port, num, url } from 'envalid';
+import { cleanEnv, str, port, num, url, makeValidator } from 'envalid';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+/** Comma-separated list of allowed browser origins, e.g. "http://localhost:3000,https://app.ora.example". */
+const commaSeparatedList = makeValidator<string[]>((input) =>
+  input
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({ choices: ['development', 'test', 'staging', 'production'], default: 'development' }),
   PORT: port({ default: 8080 }),
   SERVICE_NAME: str({ default: 'api-gateway' }),
+
+  // The frontend (web/) runs on :3000 in local/dev/Docker by default — see web/docker-compose.yml
+  // and infra/docker-compose.yml.
+  CORS_ALLOWED_ORIGINS: commaSeparatedList({ default: ['http://localhost:3000', 'http://localhost:5173'] }),
 
   JWT_ACCESS_SECRET: str(),
   JWT_ISSUER: str({ default: 'ora-platform' }),
