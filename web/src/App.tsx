@@ -51,9 +51,11 @@ export function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
 
-          {/* Oromo Wikipedia — Phase 1 (articles + revision history). Any authenticated
-              account can create/edit, matching real Wikipedia's "logging in is the only
-              bar to editing" model — see ArticleService's doc comment. */}
+          {/* Oromo Wikipedia — Phase 1 (articles + revision history). Reading is open to
+              every signed-in account, but creating/editing requires at least the
+              REGISTERED_EDITOR wiki role — see ArticleService's doc comment and
+              useCanEditWiki(). WikiArticleEditPage itself checks this and redirects
+              anyone without it back to the article/list. */}
           <Route path="/wiki" element={<WikiListPage />} />
           <Route path="/wiki/new" element={<WikiArticleEditPage />} />
           <Route path="/wiki/:slug/edit" element={<WikiArticleEditPage />} />

@@ -29,12 +29,26 @@ const controller = new ArticleController(articleService);
 const requireModerator = requireModuleRole(userRoleRepo, 'ADMINISTRATOR', 'BUREAUCRAT');
 
 /**
+ * Editor gate for create/edit — any wiki role at all (REGISTERED_EDITOR,
+ * ADMINISTRATOR, BUREAUCRAT or OVERSIGHTER), live-checked against wiki_db
+ * (or the platform ADMIN override, via requireModuleRole). A plain
+ * authenticated account with no wiki role assignment is blocked from
+ * writing content — see the roles/responsibilities spec: only a
+ * Registered Editor (or a higher role, which is a superset of it) may
+ * create or edit articles.
+ */
+const requireEditor = requireModuleRole(userRoleRepo, 'REGISTERED_EDITOR', 'ADMINISTRATOR', 'BUREAUCRAT', 'OVERSIGHTER');
+
+/**
  * Reads use `optionalAuth` (not `requireAuth`) so they stay public while
  * still knowing who's asking — an author needs to see their own
  * unpublished drafts, and a moderator needs to see everything pending
- * review. Writes require a valid platform account — see ArticleService's
- * doc comment for why content creation/editing has no extra role gate,
- * while the review/publish/archive actions below do.
+ * review. Writes require a valid platform account AND at least the
+ * REGISTERED_EDITOR wiki role (see `requireEditor` above) — creating or
+ * editing an article is not open to every logged-in user, unlike real
+ * Wikipedia's "logging in is the only bar to editing" model. The
+ * review/publish/archive actions below layer a further moderator-only
+ * gate on top of that.
  */
 
 /**
@@ -52,7 +66,7 @@ router.get('/articles', optionalAuth, validateQueryDto(ListArticlesQueryDto), co
  * @openapi
  * /articles:
  *   post:
- *     summary: Create a new article (any authenticated account)
+ *     summary: Create a new article (requires at least the REGISTERED_EDITOR wiki role, or platform ADMIN)
  *     tags: [Articles]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -62,8 +76,9 @@ router.get('/articles', optionalAuth, validateQueryDto(ListArticlesQueryDto), co
  *           schema: { $ref: '#/components/schemas/CreateArticleDto' }
  *     responses:
  *       201: { description: Article created }
+ *       403: { description: Authenticated, but holds no wiki role }
  */
-router.post('/articles', requireAuth, validateDto(CreateArticleDto), controller.create);
+router.post('/articles', requireAuth, requireEditor, validateDto(CreateArticleDto), controller.create);
 
 /**
  * @openapi
@@ -81,7 +96,7 @@ router.get('/articles/:slug', optionalAuth, controller.getBySlug);
  * @openapi
  * /articles/{slug}:
  *   put:
- *     summary: Edit an article (saves a new revision; any authenticated account)
+ *     summary: Edit an article (saves a new revision; requires at least the REGISTERED_EDITOR wiki role, or platform ADMIN)
  *     tags: [Articles]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -91,9 +106,10 @@ router.get('/articles/:slug', optionalAuth, controller.getBySlug);
  *           schema: { $ref: '#/components/schemas/UpdateArticleDto' }
  *     responses:
  *       200: { description: New revision saved }
+ *       403: { description: Authenticated, but holds no wiki role }
  *       404: { description: Not found }
  */
-router.put('/articles/:slug', requireAuth, validateDto(UpdateArticleDto), controller.edit);
+router.put('/articles/:slug', requireAuth, requireEditor, validateDto(UpdateArticleDto), controller.edit);
 
 /**
  * @openapi

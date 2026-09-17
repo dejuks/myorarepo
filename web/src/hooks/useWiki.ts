@@ -97,3 +97,44 @@ export function useIsWikiModerator(): boolean {
   if (isPlatformAdmin) return true;
   return Boolean(rolesQuery.data?.some((role) => role === 'ADMINISTRATOR' || role === 'BUREAUCRAT'));
 }
+
+/**
+ * Whether the current account is allowed to create/edit wiki articles, and
+ * whether that's still being determined — mirrors the backend's
+ * `requireEditor` gate in `article.routes.ts`: REGISTERED_EDITOR,
+ * ADMINISTRATOR, BUREAUCRAT or OVERSIGHTER (any wiki role at all),
+ * live-checked against wiki_db, or the platform ADMIN override. `isLoading`
+ * lets a hard guard (WikiArticleEditPage) hold off redirecting until the
+ * self-check has actually resolved, instead of bouncing someone who *can*
+ * edit before their roles have loaded. This is only a UI convenience —
+ * the backend 403 is the real enforcement, since the role set here could
+ * theoretically drift out of sync with the route's.
+ */
+export function useCanEditWikiStatus(): { canEdit: boolean; isLoading: boolean } {
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+  const isPlatformAdmin = useIsAdmin();
+  const userId = currentUser?.id;
+
+  const rolesQuery = useQuery({
+    queryKey: queryKeys.wikiMyRoles(userId ?? ''),
+    queryFn: () => getMyWikiRoles(userId as string),
+    enabled: isAuthenticated && Boolean(userId) && !isPlatformAdmin,
+    staleTime: 60_000,
+  });
+
+  if (isPlatformAdmin) return { canEdit: true, isLoading: false };
+
+  const isLoading = isAuthenticated && (isLoadingUser || (Boolean(userId) && rolesQuery.isLoading));
+  const canEdit = Boolean(
+    rolesQuery.data?.some(
+      (role) => role === 'REGISTERED_EDITOR' || role === 'ADMINISTRATOR' || role === 'BUREAUCRAT' || role === 'OVERSIGHTER',
+    ),
+  );
+  return { canEdit, isLoading };
+}
+
+/** Convenience boolean-only form of {@link useCanEditWikiStatus}, for UI that just hides/shows an affordance and doesn't need to distinguish "still loading" from "no". */
+export function useCanEditWiki(): boolean {
+  return useCanEditWikiStatus().canEdit;
+}

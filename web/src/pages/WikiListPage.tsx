@@ -22,7 +22,7 @@ import Typography from '@mui/material/Typography';
 import HomeIcon from '@mui/icons-material/HomeOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import ArticleIcon from '@mui/icons-material/ArticleOutlined';
-import { useArticles, useCategories } from '@/hooks/useWiki';
+import { useArticles, useCanEditWiki, useCategories } from '@/hooks/useWiki';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppSelector } from '@/app/hooks';
 import { glass } from '@/theme';
@@ -81,6 +81,7 @@ export function WikiListPage() {
 
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const { data: currentUser } = useCurrentUser();
+  const canEdit = useCanEditWiki();
   const categoriesQuery = useCategories();
 
   useEffect(() => {
@@ -119,9 +120,11 @@ export function WikiListPage() {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Oromo Wikipedia
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to="/wiki/new">
-          New article
-        </Button>
+        {canEdit && (
+          <Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to="/wiki/new">
+            New article
+          </Button>
+        )}
       </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>

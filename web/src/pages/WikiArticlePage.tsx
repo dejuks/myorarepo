@@ -29,7 +29,7 @@ import HomeIcon from '@mui/icons-material/HomeOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReviewOutlined';
-import { useArticle, useArticleRevisions, useArticleReviews, useIsWikiModerator, useRevision } from '@/hooks/useWiki';
+import { useArticle, useArticleRevisions, useArticleReviews, useCanEditWiki, useIsWikiModerator, useRevision } from '@/hooks/useWiki';
 import {
   useArchiveArticle,
   usePublishArticle,
@@ -89,6 +89,7 @@ export function WikiArticlePage() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const { data: currentUser } = useCurrentUser();
   const isModerator = useIsWikiModerator();
+  const canEdit = useCanEditWiki();
 
   const articleQuery = useArticle(slug);
   const revisionsQuery = useArticleRevisions(historyOpen ? slug : undefined);
@@ -185,9 +186,11 @@ export function WikiArticlePage() {
           >
             History
           </Button>
-          <Button variant="contained" size="small" startIcon={<EditIcon />} component={RouterLink} to={`/wiki/${slug}/edit`}>
-            Edit
-          </Button>
+          {canEdit && (
+            <Button variant="contained" size="small" startIcon={<EditIcon />} component={RouterLink} to={`/wiki/${slug}/edit`}>
+              Edit
+            </Button>
+          )}
         </Stack>
       </Stack>
 

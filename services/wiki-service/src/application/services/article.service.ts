@@ -50,16 +50,19 @@ const ALLOWED_TRANSITIONS: Record<ArticleStatus, ArticleStatus[]> = {
  * current version, edit it (= a new revision), browse its edit history, and
  * — Phase 2 — carry it through the Draft -> ... -> Published review/approval
  * workflow (spec section "8. Review & Approval Workflow"). Content
- * creation/editing itself still has no role gate beyond `requireAuth` —
- * "Registered Editor" is treated as synonymous with "any authenticated
- * platform account", matching real Wikipedia (logging in is the only bar to
- * editing). Submitting for review is restricted to the article's own author
- * (or a moderator); the review/publish/archive actions themselves are
- * gated at the route layer with `requireModuleRole` (ADMINISTRATOR or
- * BUREAUCRAT, or the platform ADMIN override) before ever reaching this
- * service. Visibility follows real Wikipedia too: the public only ever
- * sees PUBLISHED articles; an author always sees their own regardless of
- * status; a moderator sees everything (so they can find work to review).
+ * creation/editing is gated at the route layer with `requireModuleRole`
+ * (REGISTERED_EDITOR, ADMINISTRATOR, BUREAUCRAT or OVERSIGHTER, or the
+ * platform ADMIN override) before ever reaching this service — a plain
+ * authenticated account with no wiki role assignment cannot create or
+ * edit articles; per the roles/responsibilities spec, being a Registered
+ * Editor (or a higher role, which is a superset of it) is the actual bar.
+ * Submitting for review is restricted to the article's own author (or a
+ * moderator); the review/publish/archive actions themselves are gated the
+ * same way with `requireModuleRole` (ADMINISTRATOR or BUREAUCRAT, or the
+ * platform ADMIN override). Visibility follows real Wikipedia: the public
+ * only ever sees PUBLISHED articles; an author always sees their own
+ * regardless of status; a moderator sees everything (so they can find
+ * work to review).
  */
 export class ArticleService {
   constructor(

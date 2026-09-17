@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Alert from '@mui/material/Alert';
@@ -19,7 +19,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import HomeIcon from '@mui/icons-material/HomeOutlined';
-import { useArticle, useCategories, useTags } from '@/hooks/useWiki';
+import { useArticle, useCanEditWikiStatus, useCategories, useTags } from '@/hooks/useWiki';
 import { useCreateArticle, useUpdateArticle } from '@/hooks/useWikiMutations';
 import { glass } from '@/theme';
 import type { ApiErrorInfo } from '@/types/api';
@@ -29,11 +29,16 @@ const NO_CATEGORY = '';
 /**
  * Shared create/edit form: with a `:slug` route param it edits that
  * article (saving a new revision); without one it creates a brand new
- * article. Any authenticated account can use this — see ArticleService's
- * doc comment for why there's no extra "Registered Editor" gate. Category
- * and tags are optional metadata (spec section "2. Article Management") —
- * tags can be picked from existing ones or typed freely, which creates a
- * brand new tag on save (see TagService's doc comment).
+ * article. Requires at least the REGISTERED_EDITOR wiki role (or higher,
+ * or the platform ADMIN override) — see ArticleService's doc comment and
+ * `useCanEditWikiStatus`. This page holds off rendering until that
+ * self-check resolves, then redirects anyone without it back to the
+ * article (or the list, when creating); the real enforcement is still the
+ * backend's 403 on `POST`/`PUT /articles`, this is just so someone without
+ * the role never even sees the form. Category and tags are optional
+ * metadata (spec section "2. Article Management") — tags can be picked
+ * from existing ones or typed freely, which creates a brand new tag on
+ * save (see TagService's doc comment).
  */
 export function WikiArticleEditPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -45,6 +50,7 @@ export function WikiArticleEditPage() {
   const updateMutation = useUpdateArticle(slug ?? '');
   const categoriesQuery = useCategories();
   const tagsQuery = useTags();
+  const { canEdit, isLoading: isLoadingCanEdit } = useCanEditWikiStatus();
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -67,12 +73,16 @@ export function WikiArticleEditPage() {
     }
   }, [isEditing, articleQuery.data]);
 
-  if (isEditing && articleQuery.isLoading) {
+  if ((isEditing && articleQuery.isLoading) || isLoadingCanEdit) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (!canEdit) {
+    return <Navigate to={isEditing ? `/wiki/${slug}` : '/wiki'} replace />;
   }
 
   if (isEditing && (articleQuery.isError || !articleQuery.data)) {
