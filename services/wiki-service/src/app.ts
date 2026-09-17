@@ -7,6 +7,8 @@ import swaggerUi from 'swagger-ui-express';
 import { roleRouter } from '@api/routes/role.routes';
 import { memberRoleRouter } from '@api/routes/member-role.routes';
 import { articleRouter } from '@api/routes/article.routes';
+import { categoryRouter } from '@api/routes/category.routes';
+import { tagRouter } from '@api/routes/tag.routes';
 import { healthRouter } from '@api/routes/health.routes';
 import { errorHandlerMiddleware, notFoundMiddleware } from '@api/middleware/error-handler.middleware';
 import { requestLoggerMiddleware } from '@api/middleware/request-logger.middleware';
@@ -34,6 +36,8 @@ export function createApp(): Application {
   app.use(API_PREFIX, roleRouter);
   app.use(API_PREFIX, memberRoleRouter);
   app.use(API_PREFIX, articleRouter);
+  app.use(API_PREFIX, categoryRouter);
+  app.use(API_PREFIX, tagRouter);
 
   app.use(notFoundMiddleware);
   app.use(errorHandlerMiddleware);

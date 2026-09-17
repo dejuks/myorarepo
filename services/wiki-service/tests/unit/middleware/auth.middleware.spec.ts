@@ -1,6 +1,14 @@
 import { Response } from 'express';
-import { AuthenticatedRequest, requireAdmin, requireRoles, requireSelfOrRoles } from '@api/middleware/auth.middleware';
+import {
+  AuthenticatedRequest,
+  optionalAuth,
+  requireAdmin,
+  requireModuleRole,
+  requireRoles,
+  requireSelfOrRoles,
+} from '@api/middleware/auth.middleware';
 import { ForbiddenError, UnauthorizedError } from '@common/errors/app-error';
+import { IUserRoleAssignmentRepository } from '@domain/repositories/user-role-assignment.repository.interface';
 
 function makeReq(overrides: Partial<AuthenticatedRequest> = {}): AuthenticatedRequest {
   return { params: {}, ...overrides } as AuthenticatedRequest;
@@ -88,6 +96,66 @@ describe('auth.middleware — platform ADMIN override', () => {
       const next = jest.fn();
       const req = makeReq({ user: { userId: 'u1', email: 'a@b.com', roles: ['ADMIN'], jti: 'j1' } });
       requireAdmin(req, res, next);
+      expect(next).toHaveBeenCalledWith();
+    });
+  });
+
+  describe('optionalAuth', () => {
+    it('calls next() with no user set when there is no Authorization header', () => {
+      const next = jest.fn();
+      const req = makeReq({ headers: {} });
+      optionalAuth(req, res, next);
+      expect(next).toHaveBeenCalledWith();
+      expect(req.user).toBeUndefined();
+    });
+
+    it('calls next() with no user set when the header is malformed (not a Bearer token)', () => {
+      const next = jest.fn();
+      const req = makeReq({ headers: { authorization: 'not-a-bearer-token' } });
+      optionalAuth(req, res, next);
+      expect(next).toHaveBeenCalledWith();
+      expect(req.user).toBeUndefined();
+    });
+  });
+
+  describe('requireModuleRole', () => {
+    function fakeUserRoleRepo(rolesByUser: Record<string, string[]>): IUserRoleAssignmentRepository {
+      return {
+        assign: jest.fn(),
+        revoke: jest.fn(),
+        isAssigned: jest.fn(),
+        listRoleNamesForUser: jest.fn(async (userId: string) => rolesByUser[userId] ?? []),
+      };
+    }
+
+    it('rejects with UnauthorizedError when there is no authenticated user', async () => {
+      const next = jest.fn();
+      await requireModuleRole(fakeUserRoleRepo({}), 'ADMINISTRATOR')(makeReq({ user: undefined }), res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError));
+    });
+
+    it('allows the platform ADMIN override without any wiki_db role assignment', async () => {
+      const next = jest.fn();
+      const repo = fakeUserRoleRepo({});
+      const req = makeReq({ user: { userId: 'admin-1', email: 'a@b.com', roles: ['ADMIN'], jti: 'j1' } });
+      await requireModuleRole(repo, 'ADMINISTRATOR', 'BUREAUCRAT')(req, res, next);
+      expect(next).toHaveBeenCalledWith();
+      expect(repo.listRoleNamesForUser).not.toHaveBeenCalled(); // short-circuits on the JWT override, no DB lookup needed
+    });
+
+    it("rejects a caller whose live wiki_db roles don't include an allowed one", async () => {
+      const next = jest.fn();
+      const repo = fakeUserRoleRepo({ 'u1': ['REGISTERED_EDITOR'] });
+      const req = makeReq({ user: { userId: 'u1', email: 'a@b.com', roles: [], jti: 'j1' } });
+      await requireModuleRole(repo, 'ADMINISTRATOR', 'BUREAUCRAT')(req, res, next);
+      expect(next).toHaveBeenCalledWith(expect.any(ForbiddenError));
+    });
+
+    it('allows a caller holding an allowed role live in wiki_db, even with no ADMIN in their JWT', async () => {
+      const next = jest.fn();
+      const repo = fakeUserRoleRepo({ 'u1': ['BUREAUCRAT'] });
+      const req = makeReq({ user: { userId: 'u1', email: 'a@b.com', roles: [], jti: 'j1' } });
+      await requireModuleRole(repo, 'ADMINISTRATOR', 'BUREAUCRAT')(req, res, next);
       expect(next).toHaveBeenCalledWith();
     });
   });

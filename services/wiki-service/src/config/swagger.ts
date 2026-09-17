@@ -8,7 +8,7 @@ const options: swaggerJSDoc.Options = {
       title: 'ORA Platform - Wiki Service',
       version: '1.0.0',
       description:
-        'Owns roles and role assignments for the Oromo Wikipedia Platform — standalone RBAC for content moderation and governance (article creation/editing workflows live in a future pass; this slice is authorization only).',
+        'The Oromo Wikipedia Platform: articles with full revision history, categories, tags, and a Draft -> Submitted -> Under Review -> Approved -> Published -> Archived review/approval workflow, plus standalone RBAC (roles and role assignments) for content moderation and governance. Fully standalone — no synchronous calls to any other platform service.',
       contact: { name: 'ORA Platform Engineering' },
     },
     servers: [

@@ -18,4 +18,8 @@ export const queryKeys = {
   wikiArticle: (slug: string) => ['wiki', 'articles', slug] as const,
   wikiRevisions: (slug: string, page: number) => ['wiki', 'articles', slug, 'revisions', page] as const,
   wikiRevision: (slug: string, revisionId: string) => ['wiki', 'articles', slug, 'revisions', revisionId] as const,
+  wikiReviews: (slug: string) => ['wiki', 'articles', slug, 'reviews'] as const,
+  wikiCategories: (language?: string) => ['wiki', 'categories', language ?? 'all'] as const,
+  wikiTags: (language?: string) => ['wiki', 'tags', language ?? 'all'] as const,
+  wikiMyRoles: (userId: string) => ['wiki', 'my-roles', userId] as const,
 };

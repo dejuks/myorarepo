@@ -4,25 +4,36 @@ import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 import Link from '@mui/material/Link';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import HomeIcon from '@mui/icons-material/HomeOutlined';
-import { useArticle } from '@/hooks/useWiki';
+import { useArticle, useCategories, useTags } from '@/hooks/useWiki';
 import { useCreateArticle, useUpdateArticle } from '@/hooks/useWikiMutations';
 import { glass } from '@/theme';
 import type { ApiErrorInfo } from '@/types/api';
+
+const NO_CATEGORY = '';
 
 /**
  * Shared create/edit form: with a `:slug` route param it edits that
  * article (saving a new revision); without one it creates a brand new
  * article. Any authenticated account can use this — see ArticleService's
- * doc comment for why there's no extra "Registered Editor" gate.
+ * doc comment for why there's no extra "Registered Editor" gate. Category
+ * and tags are optional metadata (spec section "2. Article Management") —
+ * tags can be picked from existing ones or typed freely, which creates a
+ * brand new tag on save (see TagService's doc comment).
  */
 export function WikiArticleEditPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -32,10 +43,16 @@ export function WikiArticleEditPage() {
   const articleQuery = useArticle(slug);
   const createMutation = useCreateArticle();
   const updateMutation = useUpdateArticle(slug ?? '');
+  const categoriesQuery = useCategories();
+  const tagsQuery = useTags();
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editSummary, setEditSummary] = useState('');
+  const [summary, setSummary] = useState('');
+  const [categoryId, setCategoryId] = useState<string>(NO_CATEGORY);
+  const [tagNames, setTagNames] = useState<string[]>([]);
+  const [featuredImageUrl, setFeaturedImageUrl] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -43,6 +60,10 @@ export function WikiArticleEditPage() {
     if (isEditing && articleQuery.data) {
       setTitle(articleQuery.data.title);
       setContent(articleQuery.data.content);
+      setSummary(articleQuery.data.summary ?? '');
+      setCategoryId(articleQuery.data.categoryId ?? NO_CATEGORY);
+      setTagNames(articleQuery.data.tags.map((t) => t.name));
+      setFeaturedImageUrl(articleQuery.data.featuredImageUrl ?? '');
     }
   }, [isEditing, articleQuery.data]);
 
@@ -74,9 +95,16 @@ export function WikiArticleEditPage() {
       return;
     }
 
+    const sharedFields = {
+      summary: summary.trim() || undefined,
+      categoryId: categoryId || undefined,
+      tagNames,
+      featuredImageUrl: featuredImageUrl.trim() || undefined,
+    };
+
     if (isEditing) {
       updateMutation.mutate(
-        { content, editSummary: editSummary.trim() || undefined },
+        { content, editSummary: editSummary.trim() || undefined, ...sharedFields },
         {
           onSuccess: () => navigate(`/wiki/${slug}`),
           onError: (error) => setFormError((error as ApiErrorInfo).message || 'Could not save this edit.'),
@@ -84,7 +112,7 @@ export function WikiArticleEditPage() {
       );
     } else {
       createMutation.mutate(
-        { title: title.trim(), content, editSummary: editSummary.trim() || undefined },
+        { title: title.trim(), content, editSummary: editSummary.trim() || undefined, ...sharedFields },
         {
           onSuccess: (created) => navigate(`/wiki/${created.slug}`),
           onError: (error) => setFormError((error as ApiErrorInfo).message || 'Could not create this article.'),
@@ -119,6 +147,55 @@ export function WikiArticleEditPage() {
           {!isEditing && (
             <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
           )}
+
+          <TextField
+            label="Summary (optional)"
+            placeholder="A short blurb shown in listings and search results"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <FormControl fullWidth>
+              <InputLabel id="category-label">Category (optional)</InputLabel>
+              <Select
+                labelId="category-label"
+                label="Category (optional)"
+                value={categoryId}
+                onChange={(e: SelectChangeEvent) => setCategoryId(e.target.value)}
+              >
+                <MenuItem value={NO_CATEGORY}>
+                  <em>None</em>
+                </MenuItem>
+                {(categoriesQuery.data ?? []).map((category) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {category.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Autocomplete
+              multiple
+              freeSolo
+              fullWidth
+              options={(tagsQuery.data ?? []).map((t) => t.name)}
+              value={tagNames}
+              onChange={(_e, value) => setTagNames(value)}
+              renderInput={(params) => <TextField {...params} label="Tags (optional)" placeholder="Type and press Enter" />}
+            />
+          </Stack>
+
+          <TextField
+            label="Featured image URL (optional)"
+            placeholder="https://..."
+            value={featuredImageUrl}
+            onChange={(e) => setFeaturedImageUrl(e.target.value)}
+            fullWidth
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography variant="body2" color="text.secondary">

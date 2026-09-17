@@ -105,23 +105,33 @@ export interface PaginatedResult<T> {
   pageSize: number;
 }
 
+/** Mirrors services/wiki-service/src/domain/entities/article.entity.ts's ArticleStatus. */
+export type ArticleStatus = 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED' | 'REJECTED';
+
 /** Mirrors services/wiki-service/src/domain/entities/article.entity.ts */
 export interface Article {
   id: string;
   title: string;
   slug: string;
+  summary: string | null;
+  language: string;
+  categoryId: string | null;
+  featuredImageUrl: string | null;
+  status: ArticleStatus;
+  publishedAt: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
-/** GET/POST/PUT article responses combine the Article row with its current (latest) revision's content. */
+/** GET/POST/PUT article responses combine the Article row with its current (latest) revision's content and tags. */
 export interface ArticleWithContent extends Article {
   content: string;
   editSummary: string | null;
   revisionId: string;
   editorUserId: string;
   revisionCreatedAt: string;
+  tags: Tag[];
 }
 
 /** Mirrors services/wiki-service/src/domain/entities/revision.entity.ts */
@@ -131,5 +141,39 @@ export interface Revision {
   content: string;
   editSummary: string | null;
   editorUserId: string;
+  createdAt: string;
+}
+
+/** Mirrors services/wiki-service/src/domain/entities/category.entity.ts */
+export interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  parentCategoryId: string | null;
+  language: string;
+  status: 'ACTIVE' | 'ARCHIVED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Mirrors services/wiki-service/src/domain/entities/tag.entity.ts */
+export interface Tag {
+  id: string;
+  name: string;
+  description: string | null;
+  language: string;
+  createdAt: string;
+}
+
+/** Mirrors services/wiki-service/src/domain/entities/article-review.entity.ts's ReviewDecision. */
+export type ReviewDecision = 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES';
+
+/** Mirrors services/wiki-service/src/domain/entities/article-review.entity.ts */
+export interface ArticleReview {
+  id: string;
+  articleId: string;
+  reviewerUserId: string;
+  comment: string | null;
+  decision: ReviewDecision;
   createdAt: string;
 }
