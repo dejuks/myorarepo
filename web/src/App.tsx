@@ -15,7 +15,9 @@ import { ProfilePage } from '@/pages/ProfilePage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { AdminUsersPage } from '@/pages/AdminUsersPage';
 import { AdminUserDetailPage } from '@/pages/AdminUserDetailPage';
+import { CreateUserPage } from '@/pages/CreateUserPage';
 import { AdminRolesPage } from '@/pages/AdminRolesPage';
+import { RolePermissionsPage } from '@/pages/RolePermissionsPage';
 import { PlatformSettingsPage } from '@/pages/PlatformSettingsPage';
 import { ModuleRolesPage } from '@/pages/ModuleRolesPage';
 import { WikiListPage } from '@/pages/WikiListPage';
@@ -58,8 +60,10 @@ export function App() {
 
           <Route element={<AdminRoute />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/users/new" element={<CreateUserPage />} />
             <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
             <Route path="/admin/roles" element={<AdminRolesPage />} />
+            <Route path="/admin/roles/:id/permissions" element={<RolePermissionsPage />} />
             <Route path="/admin/settings" element={<PlatformSettingsPage />} />
           </Route>
 

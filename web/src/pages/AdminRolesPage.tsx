@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,7 +25,6 @@ import Typography from '@mui/material/Typography';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { RolePermissionsDialog } from '@/components/RolePermissionsDialog';
 import { useRoles } from '@/hooks/useRoles';
 import { useCreateRole, useDeleteRole } from '@/hooks/useRoleAdminMutations';
 import { isValidRoleName, roleNameMessage } from '@/utils/validation';
@@ -32,6 +32,7 @@ import type { ApiErrorInfo } from '@/types/api';
 import type { Role } from '@/types/domain';
 
 export function AdminRolesPage() {
+  const navigate = useNavigate();
   const rolesQuery = useRoles();
   const createRoleMutation = useCreateRole();
   const deleteRoleMutation = useDeleteRole();
@@ -44,8 +45,6 @@ export function AdminRolesPage() {
 
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const [roleToEditPermissions, setRoleToEditPermissions] = useState<Role | null>(null);
 
   function openCreateDialog() {
     setName('');
@@ -142,7 +141,7 @@ export function AdminRolesPage() {
                       <IconButton
                         size="small"
                         aria-label={`edit permissions for role ${role.name}`}
-                        onClick={() => setRoleToEditPermissions(role)}
+                        onClick={() => navigate(`/admin/roles/${role.id}/permissions`)}
                       >
                         <KeyOutlinedIcon fontSize="small" />
                       </IconButton>
@@ -213,8 +212,6 @@ export function AdminRolesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setRoleToDelete(null)}
       />
-
-      <RolePermissionsDialog role={roleToEditPermissions} onClose={() => setRoleToEditPermissions(null)} />
     </Box>
   );
 }

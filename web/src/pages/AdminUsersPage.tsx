@@ -24,7 +24,6 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import HomeIcon from '@mui/icons-material/HomeOutlined';
-import { CreateUserDialog } from '@/components/CreateUserDialog';
 import { useUsers } from '@/hooks/useUsers';
 import { UserStatus } from '@/types/domain';
 import { userStatusChipColor } from '@/utils/userStatus';
@@ -48,7 +47,6 @@ export function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<UserStatus | ''>('');
   const [page, setPage] = useState(1);
-  const [createUserOpen, setCreateUserOpen] = useState(false);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -92,7 +90,7 @@ export function AdminUsersPage() {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Users
         </Typography>
-        <Button variant="contained" onClick={() => setCreateUserOpen(true)}>
+        <Button variant="contained" onClick={() => navigate('/admin/users/new')}>
           Create user
         </Button>
       </Stack>
@@ -186,12 +184,6 @@ export function AdminUsersPage() {
           <Pagination count={totalPages} page={page} onChange={(_e, value) => setPage(value)} />
         </Box>
       )}
-
-      <CreateUserDialog
-        open={createUserOpen}
-        onClose={() => setCreateUserOpen(false)}
-        onCreated={(createdUser) => navigate(`/admin/users/${createdUser.id}`)}
-      />
     </Box>
   );
 }
