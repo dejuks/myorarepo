@@ -1,5 +1,5 @@
 import { UserService } from '@application/services/user.service';
-import { UserStatus } from '@domain/entities/user.entity';
+import { Gender, UserStatus } from '@domain/entities/user.entity';
 import { FakeUserRepository, FakeRoleRepository, FakeUserRoleAssignmentRepository } from './fakes';
 
 jest.mock('@infrastructure/messaging/rabbitmq.publisher', () => ({
@@ -61,6 +61,27 @@ describe('UserService', () => {
     it('throws NotFoundError for a nonexistent user', async () => {
       await expect(userService.updateProfile('nonexistent', { firstName: 'X' })).rejects.toMatchObject({ statusCode: 404 });
     });
+
+    it('updates the extended profile fields (gender, dateOfBirth, address, country, region, city, timezone)', async () => {
+      const created = await userService.createUser({ id: 'id-update-2', email: 'update2@example.com', firstName: 'Old', lastName: 'Name' });
+      const updated = await userService.updateProfile(created.id, {
+        gender: Gender.FEMALE,
+        dateOfBirth: '1990-05-17',
+        address: '123 Main St',
+        country: 'Ethiopia',
+        region: 'Oromia',
+        city: 'Adama',
+        timezone: 'Africa/Addis_Ababa',
+      });
+
+      expect(updated.gender).toBe(Gender.FEMALE);
+      expect(updated.dateOfBirth).toBe('1990-05-17');
+      expect(updated.address).toBe('123 Main St');
+      expect(updated.country).toBe('Ethiopia');
+      expect(updated.region).toBe('Oromia');
+      expect(updated.city).toBe('Adama');
+      expect(updated.timezone).toBe('Africa/Addis_Ababa');
+    });
   });
 
   describe('changeStatus', () => {
@@ -105,6 +126,35 @@ describe('UserService', () => {
     it('rejects assigning a role that does not exist', async () => {
       const created = await userService.createUser({ id: 'id-role-3', email: 'r3@example.com', firstName: 'A', lastName: 'B' });
       await expect(userService.assignRole(created.id, 'NONEXISTENT', 'admin-id')).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('assigns a role with a future expiresAt and the role is still active', async () => {
+      const created = await userService.createUser({ id: 'id-role-4', email: 'r4@example.com', firstName: 'A', lastName: 'B' });
+      const future = new Date(Date.now() + 60_000).toISOString();
+
+      const withRole = await userService.assignRole(created.id, 'RESEARCHER', 'admin-id', future);
+      expect(withRole.roles).toEqual(expect.arrayContaining(['USER', 'RESEARCHER']));
+    });
+
+    it('an already-expired expiresAt causes the role to no longer be returned', async () => {
+      const created = await userService.createUser({ id: 'id-role-5', email: 'r5@example.com', firstName: 'A', lastName: 'B' });
+      const past = new Date(Date.now() - 60_000).toISOString();
+
+      // assign directly through the repo to bypass the service's future-only validation,
+      // mirroring a grant that has simply aged past its expiration.
+      const role = await roleRepo.findByName('RESEARCHER');
+      await userRoleRepo.assign(created.id, role!.id, 'admin-id', new Date(past));
+
+      const result = await userService.getById(created.id);
+      expect(result.roles).not.toContain('RESEARCHER');
+      expect(result.roles).toContain('USER');
+    });
+
+    it('rejects assigning a role with an expiresAt that is already in the past', async () => {
+      const created = await userService.createUser({ id: 'id-role-6', email: 'r6@example.com', firstName: 'A', lastName: 'B' });
+      const past = new Date(Date.now() - 60_000).toISOString();
+
+      await expect(userService.assignRole(created.id, 'RESEARCHER', 'admin-id', past)).rejects.toMatchObject({ statusCode: 400 });
     });
   });
 

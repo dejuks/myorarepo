@@ -49,6 +49,7 @@ export function AdminUserDetailPage() {
   const [statusSuccess, setStatusSuccess] = useState(false);
 
   const [roleToAdd, setRoleToAdd] = useState('');
+  const [roleExpiresAt, setRoleExpiresAt] = useState('');
   const [roleError, setRoleError] = useState<string | null>(null);
   const [roleToRevoke, setRoleToRevoke] = useState<string | null>(null);
 
@@ -100,13 +101,23 @@ export function AdminUserDetailPage() {
   function handleAddRole() {
     setRoleError(null);
     if (!roleToAdd) return;
-    assignRoleMutation.mutate(roleToAdd, {
-      onSuccess: () => setRoleToAdd(''),
-      onError: (error) => {
-        const info = error as ApiErrorInfo;
-        setRoleError(info.message || 'Could not assign this role.');
+    // A bare <input type="date"> value ("2026-12-31") has no time component; treat it as
+    // end-of-day local time so "expires on this date" reads naturally rather than expiring
+    // at midnight at the very start of the chosen day.
+    const expiresAt = roleExpiresAt ? new Date(`${roleExpiresAt}T23:59:59`).toISOString() : undefined;
+    assignRoleMutation.mutate(
+      { roleName: roleToAdd, expiresAt },
+      {
+        onSuccess: () => {
+          setRoleToAdd('');
+          setRoleExpiresAt('');
+        },
+        onError: (error) => {
+          const info = error as ApiErrorInfo;
+          setRoleError(info.message || 'Could not assign this role.');
+        },
       },
-    });
+    );
   }
 
   function confirmRevokeRole() {
@@ -254,6 +265,15 @@ export function AdminUserDetailPage() {
               ))}
             </Select>
           </FormControl>
+          <TextField
+            label="Expires on (optional)"
+            type="date"
+            size="small"
+            value={roleExpiresAt}
+            onChange={(e) => setRoleExpiresAt(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            helperText="Leave blank for a permanent role"
+          />
           <Button
             variant="outlined"
             onClick={handleAddRole}

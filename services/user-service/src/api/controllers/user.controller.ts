@@ -75,7 +75,7 @@ export class UserController {
   assignRole = async (req: AuthenticatedRequest & Request<{ id: string }, unknown, AssignRoleDto>, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) throw new Error('Unauthenticated request reached assignRole handler');
-      const user = await this.userService.assignRole(req.params.id, req.body.roleName, req.user.userId);
+      const user = await this.userService.assignRole(req.params.id, req.body.roleName, req.user.userId, req.body.expiresAt);
       res.status(200).json({ success: true, data: user });
     } catch (err) {
       next(err);

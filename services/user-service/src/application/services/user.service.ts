@@ -121,15 +121,25 @@ export class UserService {
     return this.attachRoles(updated);
   }
 
-  async assignRole(userId: string, roleName: string, actorUserId: string): Promise<UserWithRoles> {
+  async assignRole(userId: string, roleName: string, actorUserId: string, expiresAt?: string): Promise<UserWithRoles> {
     const user = await this.userRepo.findById(userId);
     if (!user) throw new NotFoundError('User not found');
 
     const role = await this.roleRepo.findByName(roleName);
     if (!role) throw new NotFoundError(`Role "${roleName}" does not exist`);
 
-    await this.userRoleRepo.assign(userId, role.id, actorUserId);
-    await rabbitMqPublisher.publish('user.role_assigned', { userId, role: role.name, assignedBy: actorUserId });
+    const expiresAtDate = expiresAt ? new Date(expiresAt) : null;
+    if (expiresAtDate && expiresAtDate.getTime() <= Date.now()) {
+      throw new ValidationError('expiresAt must be in the future');
+    }
+
+    await this.userRoleRepo.assign(userId, role.id, actorUserId, expiresAtDate);
+    await rabbitMqPublisher.publish('user.role_assigned', {
+      userId,
+      role: role.name,
+      assignedBy: actorUserId,
+      expiresAt: expiresAtDate ? expiresAtDate.toISOString() : null,
+    });
 
     return this.attachRoles(user);
   }

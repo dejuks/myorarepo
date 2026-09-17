@@ -7,7 +7,12 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
+import Select from '@mui/material/Select';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -16,7 +21,15 @@ import { updateProfile } from '@/api/userApi';
 import { queryKeys } from '@/api/queryKeys';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { userStatusChipColor } from '@/utils/userStatus';
+import { Gender } from '@/types/domain';
 import type { ApiErrorInfo } from '@/types/api';
+
+const GENDER_LABELS: Record<Gender, string> = {
+  [Gender.MALE]: 'Male',
+  [Gender.FEMALE]: 'Female',
+  [Gender.OTHER]: 'Other',
+  [Gender.PREFER_NOT_TO_SAY]: 'Prefer not to say',
+};
 
 function formatDate(iso: string): string {
   try {
@@ -34,6 +47,13 @@ interface ProfileFormState {
   phone: string;
   locale: string;
   avatarUrl: string;
+  gender: Gender | '';
+  dateOfBirth: string;
+  address: string;
+  country: string;
+  region: string;
+  city: string;
+  timezone: string;
 }
 
 const EMPTY_FORM: ProfileFormState = {
@@ -44,6 +64,13 @@ const EMPTY_FORM: ProfileFormState = {
   phone: '',
   locale: '',
   avatarUrl: '',
+  gender: '',
+  dateOfBirth: '',
+  address: '',
+  country: '',
+  region: '',
+  city: '',
+  timezone: '',
 };
 
 function isValidUrl(value: string): boolean {
@@ -76,6 +103,13 @@ export function ProfilePage() {
         phone: currentUser.phone ?? '',
         locale: currentUser.locale ?? '',
         avatarUrl: currentUser.avatarUrl ?? '',
+        gender: currentUser.gender ?? '',
+        dateOfBirth: currentUser.dateOfBirth ?? '',
+        address: currentUser.address ?? '',
+        country: currentUser.country ?? '',
+        region: currentUser.region ?? '',
+        city: currentUser.city ?? '',
+        timezone: currentUser.timezone ?? '',
       });
     }
   }, [currentUser]);
@@ -95,6 +129,13 @@ export function ProfilePage() {
         phone: form.phone.trim() || undefined,
         locale: form.locale.trim() || undefined,
         avatarUrl: form.avatarUrl.trim() || undefined,
+        gender: form.gender || undefined,
+        dateOfBirth: form.dateOfBirth || undefined,
+        address: form.address.trim() || undefined,
+        country: form.country.trim() || undefined,
+        region: form.region.trim() || undefined,
+        city: form.city.trim() || undefined,
+        timezone: form.timezone.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -136,6 +177,13 @@ export function ProfilePage() {
         phone: currentUser.phone ?? '',
         locale: currentUser.locale ?? '',
         avatarUrl: currentUser.avatarUrl ?? '',
+        gender: currentUser.gender ?? '',
+        dateOfBirth: currentUser.dateOfBirth ?? '',
+        address: currentUser.address ?? '',
+        country: currentUser.country ?? '',
+        region: currentUser.region ?? '',
+        city: currentUser.city ?? '',
+        timezone: currentUser.timezone ?? '',
       });
     }
   }
@@ -226,6 +274,69 @@ export function ProfilePage() {
                 placeholder="https://example.com/avatar.png"
                 fullWidth
               />
+              <Divider>Additional details</Divider>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel id="gender-label">Gender</InputLabel>
+                  <Select
+                    labelId="gender-label"
+                    label="Gender"
+                    value={form.gender}
+                    onChange={(e: SelectChangeEvent) => updateField('gender', e.target.value as Gender | '')}
+                  >
+                    <MenuItem value="">
+                      <em>Prefer not to answer</em>
+                    </MenuItem>
+                    {Object.values(Gender).map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {GENDER_LABELS[g]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Date of birth"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => updateField('dateOfBirth', e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                />
+              </Stack>
+              <TextField
+                label="Address"
+                value={form.address}
+                onChange={(e) => updateField('address', e.target.value)}
+                fullWidth
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="City"
+                  value={form.city}
+                  onChange={(e) => updateField('city', e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Region / State"
+                  value={form.region}
+                  onChange={(e) => updateField('region', e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Country"
+                  value={form.country}
+                  onChange={(e) => updateField('country', e.target.value)}
+                  fullWidth
+                />
+              </Stack>
+              <TextField
+                label="Timezone"
+                value={form.timezone}
+                onChange={(e) => updateField('timezone', e.target.value)}
+                placeholder="Africa/Addis_Ababa"
+                helperText="IANA timezone name"
+                fullWidth
+              />
               <Stack direction="row" spacing={2}>
                 <Button type="submit" variant="contained" disabled={mutation.isPending}>
                   {mutation.isPending ? 'Saving…' : 'Save'}
@@ -287,6 +398,27 @@ export function ProfilePage() {
               {currentUser.phone && (
                 <Typography variant="body2">
                   <strong>Phone:</strong> {currentUser.phone}
+                </Typography>
+              )}
+              {currentUser.gender && (
+                <Typography variant="body2">
+                  <strong>Gender:</strong> {GENDER_LABELS[currentUser.gender]}
+                </Typography>
+              )}
+              {currentUser.dateOfBirth && (
+                <Typography variant="body2">
+                  <strong>Date of birth:</strong> {currentUser.dateOfBirth}
+                </Typography>
+              )}
+              {(currentUser.address || currentUser.city || currentUser.region || currentUser.country) && (
+                <Typography variant="body2">
+                  <strong>Address:</strong>{' '}
+                  {[currentUser.address, currentUser.city, currentUser.region, currentUser.country].filter(Boolean).join(', ')}
+                </Typography>
+              )}
+              {currentUser.timezone && (
+                <Typography variant="body2">
+                  <strong>Timezone:</strong> {currentUser.timezone}
                 </Typography>
               )}
               <Typography variant="body2" color="text.secondary">

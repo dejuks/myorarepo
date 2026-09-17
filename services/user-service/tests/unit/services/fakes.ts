@@ -29,6 +29,13 @@ export class FakeUserRepository implements IUserRepository {
       bio: entity.bio ?? null,
       phone: entity.phone ?? null,
       locale: entity.locale ?? 'en',
+      gender: entity.gender ?? null,
+      dateOfBirth: entity.dateOfBirth ?? null,
+      address: entity.address ?? null,
+      country: entity.country ?? null,
+      region: entity.region ?? null,
+      city: entity.city ?? null,
+      timezone: entity.timezone ?? null,
       status: entity.status ?? UserStatus.PENDING,
       deactivatedAt: null,
       createdAt: new Date(),
@@ -100,18 +107,24 @@ export class FakeUserRoleAssignmentRepository implements IUserRoleAssignmentRepo
   /** Mirrors the real repository's join against roles — takes the same FakeRoleRepository instance the test wires up. */
   constructor(private readonly roleRepo: FakeRoleRepository) {}
 
-  async assign(userId: string, roleId: string, assignedBy: string | null) {
+  async assign(userId: string, roleId: string, assignedBy: string | null, expiresAt?: Date | null) {
     const existing = this.rows.find((r) => r.userId === userId && r.roleId === roleId);
-    if (existing) return existing;
-    const row: UserRoleAssignment = { userId, roleId, assignedBy, assignedAt: new Date() };
+    if (existing) {
+      existing.expiresAt = expiresAt ?? null;
+      return existing;
+    }
+    const row: UserRoleAssignment = { userId, roleId, assignedBy, assignedAt: new Date(), expiresAt: expiresAt ?? null };
     this.rows.push(row);
     return row;
   }
   async revoke(userId: string, roleId: string) {
     this.rows = this.rows.filter((r) => !(r.userId === userId && r.roleId === roleId));
   }
+  private notExpired(r: UserRoleAssignment): boolean {
+    return !r.expiresAt || r.expiresAt.getTime() > Date.now();
+  }
   async listRoleNamesForUser(userId: string): Promise<string[]> {
-    const roleIds = this.rows.filter((r) => r.userId === userId).map((r) => r.roleId);
+    const roleIds = this.rows.filter((r) => r.userId === userId && this.notExpired(r)).map((r) => r.roleId);
     const names: string[] = [];
     for (const roleId of roleIds) {
       const role = await this.roleRepo.findById(roleId);
@@ -120,7 +133,7 @@ export class FakeUserRoleAssignmentRepository implements IUserRoleAssignmentRepo
     return names;
   }
   async isAssigned(userId: string, roleId: string) {
-    return this.rows.some((r) => r.userId === userId && r.roleId === roleId);
+    return this.rows.some((r) => r.userId === userId && r.roleId === roleId && this.notExpired(r));
   }
 }
 

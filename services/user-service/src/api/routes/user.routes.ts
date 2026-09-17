@@ -138,7 +138,7 @@ router.patch(
  * @openapi
  * /users/{id}/roles:
  *   post:
- *     summary: Assign a role to a user (requires roles.assign)
+ *     summary: Assign a role to a user (requires roles.assign); optionally include expiresAt for a temporary grant
  *     tags: [Users, Roles]
  *     security: [{ bearerAuth: [] }]
  *     responses:

@@ -15,4 +15,8 @@ export class UserRoleAssignment {
 
   @CreateDateColumn({ name: 'assigned_at', type: 'timestamptz' })
   assignedAt!: Date;
+
+  /** Null means the assignment never expires. Once set and in the past, `listRoleNamesForUser`/`isAssigned` stop returning this row — see UserRoleAssignmentRepository. */
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
+  expiresAt!: Date | null;
 }

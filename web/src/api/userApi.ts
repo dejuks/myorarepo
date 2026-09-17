@@ -1,6 +1,6 @@
 import { apiClient, toApiErrorInfo, unwrap } from '@/api/client';
 import type { ApiEnvelope } from '@/types/api';
-import type { PaginatedResult, Permission, Role, User, UserStatus } from '@/types/domain';
+import type { Gender, PaginatedResult, Permission, Role, User, UserStatus } from '@/types/domain';
 
 export function getMe(): Promise<User> {
   return unwrap(apiClient.get<ApiEnvelope<User>>('/users/me'));
@@ -51,6 +51,13 @@ export interface UpdateProfilePayload {
   bio?: string;
   phone?: string;
   locale?: string;
+  gender?: Gender;
+  dateOfBirth?: string;
+  address?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  timezone?: string;
 }
 
 export function updateProfile(userId: string, payload: UpdateProfilePayload): Promise<User> {
@@ -66,9 +73,15 @@ export function updateUserStatus(userId: string, payload: UpdateUserStatusPayloa
   return unwrap(apiClient.patch<ApiEnvelope<User>>(`/users/${userId}/status`, payload));
 }
 
+export interface AssignRolePayload {
+  roleName: string;
+  /** ISO 8601 timestamp. Omit for a permanent grant; must be in the future when provided. */
+  expiresAt?: string;
+}
+
 /** Admin only. */
-export function assignRole(userId: string, roleName: string): Promise<User> {
-  return unwrap(apiClient.post<ApiEnvelope<User>>(`/users/${userId}/roles`, { roleName }));
+export function assignRole(userId: string, payload: AssignRolePayload): Promise<User> {
+  return unwrap(apiClient.post<ApiEnvelope<User>>(`/users/${userId}/roles`, payload));
 }
 
 /** Admin only. */

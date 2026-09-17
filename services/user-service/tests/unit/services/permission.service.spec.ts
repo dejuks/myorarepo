@@ -132,6 +132,19 @@ describe('PermissionService', () => {
       expect(await permissionService.userHasPermission('user-1', 'users.manage')).toBe(false);
     });
 
+    it('loses access automatically once an expiring role assignment passes its expiresAt — no revoke call needed', async () => {
+      const { roleRepo, userRoleRepo, permissionService } = makeService();
+      const researcher = await roleRepo.findByName('RESEARCHER');
+      await permissionService.setRolePermissions(researcher!.id, ['users.manage']);
+
+      const past = new Date(Date.now() - 60_000);
+      await userRoleRepo.assign('user-1', researcher!.id, null, past);
+
+      // The grant row still exists (nothing revoked it) — it's just past its own expiresAt,
+      // and listRoleNamesForUser/isAssigned filter it out on every live lookup.
+      expect(await permissionService.userHasPermission('user-1', 'users.manage')).toBe(false);
+    });
+
     it('grants access via ANY of the user\'s roles, not just the first', async () => {
       const { roleRepo, userRoleRepo, permissionService } = makeService();
       const user = await roleRepo.findByName('USER');

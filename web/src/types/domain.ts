@@ -6,6 +6,14 @@ export enum UserStatus {
   DEACTIVATED = 'DEACTIVATED',
 }
 
+/** Mirrors services/user-service/src/domain/entities/user.entity.ts */
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
+}
+
 export interface User {
   id: string;
   email: string;
@@ -16,6 +24,15 @@ export interface User {
   bio: string | null;
   phone: string | null;
   locale: string;
+  gender: Gender | null;
+  /** ISO date string, e.g. "1990-05-17" (no time component). */
+  dateOfBirth: string | null;
+  address: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  /** IANA timezone name, e.g. "Africa/Addis_Ababa". */
+  timezone: string | null;
   status: UserStatus;
   deactivatedAt: string | null;
   createdAt: string;

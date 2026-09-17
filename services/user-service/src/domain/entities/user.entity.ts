@@ -1,5 +1,12 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
+}
+
 export enum UserStatus {
   // Profile created, awaiting the account owner to verify their email in
   // auth-service. Auto-transitions to ACTIVE once auth-service publishes
@@ -51,6 +58,27 @@ export class User {
 
   @Column({ type: 'varchar', length: 10, default: 'en' })
   locale!: string;
+
+  @Column({ type: 'enum', enum: Gender, nullable: true })
+  gender!: Gender | null;
+
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  dateOfBirth!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  address!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  country!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  region!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  city!: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  timezone!: string | null;
 
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.PENDING })
   status!: UserStatus;
