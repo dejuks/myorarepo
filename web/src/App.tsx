@@ -19,7 +19,8 @@ import { CreateUserPage } from '@/pages/CreateUserPage';
 import { AdminRolesPage } from '@/pages/AdminRolesPage';
 import { RolePermissionsPage } from '@/pages/RolePermissionsPage';
 import { PlatformSettingsPage } from '@/pages/PlatformSettingsPage';
-import { ModuleRolesPage } from '@/pages/ModuleRolesPage';
+import { ModuleRoleCatalogPage } from '@/pages/ModuleRoleCatalogPage';
+import { ModuleMembersPage } from '@/pages/ModuleMembersPage';
 import { WikiListPage } from '@/pages/WikiListPage';
 import { WikiArticlePage } from '@/pages/WikiArticlePage';
 import { WikiArticleEditPage } from '@/pages/WikiArticleEditPage';
@@ -68,9 +69,13 @@ export function App() {
           </Route>
 
           {/* Module admins (a module's own top role) can reach their module's dashboard
-              without being platform ADMIN — see ModuleRoute's doc comment. */}
+              without being platform ADMIN — see ModuleRoute's doc comment. Role catalog
+              and member roles are separate full pages (not one two-panel page), linked
+              via ModuleSectionTabs; the bare :moduleKey path redirects to the catalog. */}
           <Route element={<ModuleRoute />}>
-            <Route path="/admin/modules/:moduleKey" element={<ModuleRolesPage />} />
+            <Route path="/admin/modules/:moduleKey" element={<Navigate to="roles" replace />} />
+            <Route path="/admin/modules/:moduleKey/roles" element={<ModuleRoleCatalogPage />} />
+            <Route path="/admin/modules/:moduleKey/members" element={<ModuleMembersPage />} />
           </Route>
         </Route>
       </Route>

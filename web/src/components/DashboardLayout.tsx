@@ -52,6 +52,8 @@ interface NavItem {
   to: string;
   icon: ReactNode;
   disabled?: boolean;
+  /** Path prefix to match for the "selected" highlight, when it differs from `to` — e.g. a module's nav item links straight to its Role catalog page but should stay highlighted on its Member roles page too. */
+  matchPrefix?: string;
 }
 
 const primaryNavItems: NavItem[] = [
@@ -92,7 +94,8 @@ const moduleIcons: Record<string, ReactNode> = {
 function buildModuleNavItems(modules: ModuleConfig[]): NavItem[] {
   return modules.map((mod) => ({
     label: `${mod.label} — Roles`,
-    to: `/admin/modules/${mod.key}`,
+    to: `/admin/modules/${mod.key}/roles`,
+    matchPrefix: `/admin/modules/${mod.key}`,
     icon: moduleIcons[mod.key] ?? <ArticleIcon />,
   }));
 }
@@ -139,6 +142,11 @@ export function DashboardLayout() {
 
   function isSelected(to: string) {
     return location.pathname === to || location.pathname.startsWith(`${to}/`);
+  }
+
+  function isModuleItemSelected(item: NavItem) {
+    const prefix = item.matchPrefix ?? item.to;
+    return location.pathname === prefix || location.pathname.startsWith(`${prefix}/`);
   }
 
   function handleNavClick() {
@@ -233,7 +241,7 @@ export function DashboardLayout() {
                   key={item.to}
                   component={RouterLink}
                   to={item.to}
-                  selected={location.pathname === item.to}
+                  selected={isModuleItemSelected(item)}
                   onClick={handleNavClick}
                 >
                   <ListItemIcon>{item.icon}</ListItemIcon>

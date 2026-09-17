@@ -3,14 +3,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { renderWithProviders } from '@/test/renderWithProviders';
-import { ModuleRolesPage } from '@/pages/ModuleRolesPage';
+import { ModuleMembersPage } from '@/pages/ModuleMembersPage';
 import { UserStatus } from '@/types/domain';
 import type { Role, User } from '@/types/domain';
 
 vi.mock('@/api/moduleApi', () => ({
   listModuleRoles: vi.fn(),
-  createModuleRole: vi.fn(),
-  deleteModuleRole: vi.fn(),
   listMemberRoles: vi.fn(),
   assignMemberRole: vi.fn(),
   revokeMemberRole: vi.fn(),
@@ -61,35 +59,25 @@ function buildUser(id: string): User {
 function TestApp() {
   return (
     <Routes>
-      <Route path="/admin/modules/:moduleKey" element={<ModuleRolesPage />} />
+      <Route path="/admin/modules/:moduleKey/members" element={<ModuleMembersPage />} />
     </Routes>
   );
 }
 
-describe('ModuleRolesPage', () => {
+describe('ModuleMembersPage', () => {
   it('shows an error for a module key that is not in the config', async () => {
-    renderWithProviders(<TestApp />, { route: '/admin/modules/not-a-real-module', preloadedAuth: { isAuthenticated: true } });
+    renderWithProviders(<TestApp />, { route: '/admin/modules/not-a-real-module/members', preloadedAuth: { isAuthenticated: true } });
     expect(await screen.findByText(/Unknown module/i)).toBeInTheDocument();
-  });
-
-  it('loads and displays the role catalog for a known module', async () => {
-    vi.mocked(listModuleRoles).mockResolvedValueOnce([buildRole('JOURNAL_MANAGER'), buildRole('AUTHOR')]);
-    vi.mocked(listUsers).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 });
-
-    renderWithProviders(<TestApp />, { route: '/admin/modules/journal', preloadedAuth: { isAuthenticated: true } });
-
-    expect(await screen.findByText('JOURNAL_MANAGER')).toBeInTheDocument();
-    expect(screen.getByText('AUTHOR')).toBeInTheDocument();
-    expect(screen.getByText(/Journals — Roles & Permissions/)).toBeInTheDocument();
   });
 
   it('prompts to pick a member before showing member-role controls', async () => {
     vi.mocked(listModuleRoles).mockResolvedValueOnce([buildRole('BOOK_EDITOR')]);
     vi.mocked(listUsers).mockResolvedValue({ items: [buildUser('u1')], total: 1, page: 1, pageSize: 10 });
 
-    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook', preloadedAuth: { isAuthenticated: true } });
+    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook/members', preloadedAuth: { isAuthenticated: true } });
 
     await waitFor(() => expect(screen.getByText(/Search for and select a user/i)).toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: /member roles/i })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('creates a platform account and selects it for role assignment', async () => {
@@ -101,9 +89,9 @@ describe('ModuleRolesPage', () => {
     vi.mocked(listMemberRoles).mockResolvedValue([]);
 
     const user = userEvent.setup();
-    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook', preloadedAuth: { isAuthenticated: true } });
+    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook/members', preloadedAuth: { isAuthenticated: true } });
 
-    await screen.findByText('BOOK_EDITOR');
+    await screen.findByText(/Search for and select a user/i);
     await user.click(screen.getByRole('button', { name: /create user/i }));
 
     await screen.findByRole('heading', { name: /create a platform user/i });
@@ -127,9 +115,9 @@ describe('ModuleRolesPage', () => {
     vi.mocked(registerCredentials).mockRejectedValueOnce({ message: 'Credentials service unavailable' });
 
     const user = userEvent.setup();
-    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook', preloadedAuth: { isAuthenticated: true } });
+    renderWithProviders(<TestApp />, { route: '/admin/modules/ebook/members', preloadedAuth: { isAuthenticated: true } });
 
-    await screen.findByText('BOOK_EDITOR');
+    await screen.findByText(/Search for and select a user/i);
     await user.click(screen.getByRole('button', { name: /create user/i }));
     await screen.findByRole('heading', { name: /create a platform user/i });
     await user.type(screen.getByLabelText(/first name/i), 'Jane');
