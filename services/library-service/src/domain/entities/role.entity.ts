@@ -15,7 +15,8 @@ export class Role {
   @Column({ type: 'varchar', length: 50 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  // 500, not the platform's usual 255 — see InitLibraryServiceSchema1737000700000's doc comment.
+  @Column({ type: 'varchar', length: 500, nullable: true })
   description!: string | null;
 
   @Column({ name: 'is_system', type: 'boolean', default: false })

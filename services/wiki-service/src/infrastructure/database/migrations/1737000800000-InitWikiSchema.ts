@@ -10,6 +10,16 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   - ADMINISTRATOR ("Sysop") — content/user moderation
  *   - BUREAUCRAT (top role) — role management and platform governance
  *   - OVERSIGHTER ("CheckUser") — privacy-sensitive abuse control
+ *
+ * `description` is VARCHAR(500), not the platform's usual 255: two of the
+ * seeded system-role descriptions below (ADMINISTRATOR, OVERSIGHTER) run
+ * past 255 characters, which made this migration fail outright (whole
+ * transaction rolled back, so `roles` was never created) the first time it
+ * ever ran anywhere. Since it had never successfully applied — nothing in
+ * production ever depended on the narrower column — this file was edited
+ * in place rather than patched with a follow-up migration, which is the
+ * one situation where that's safe (see repo convention: migrations are
+ * otherwise always new files, never edited, once real data exists).
  */
 export class InitWikiSchema1737000800000 implements MigrationInterface {
   name = 'InitWikiSchema1737000800000';
@@ -21,7 +31,7 @@ export class InitWikiSchema1737000800000 implements MigrationInterface {
       CREATE TABLE roles (
         id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name          VARCHAR(50) NOT NULL UNIQUE,
-        description   VARCHAR(255),
+        description   VARCHAR(500),
         is_system     BOOLEAN NOT NULL DEFAULT false,
         created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
       );

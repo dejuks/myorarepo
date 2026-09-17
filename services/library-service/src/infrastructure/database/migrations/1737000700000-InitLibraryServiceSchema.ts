@@ -7,6 +7,16 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Covers both the Digital and Physical Library Management sub-systems from
  * the SRS, seeded together in one catalog (one `library-service`, one
  * `library_db`) rather than as two separate services.
+ *
+ * `description` is VARCHAR(500), not the platform's usual 255: the seeded
+ * LIBRARY_MANAGER description below runs past 255 characters, which made
+ * this migration fail outright (whole transaction rolled back, so `roles`
+ * was never created) the first time it ever ran anywhere. Since it had
+ * never successfully applied — nothing in production ever depended on the
+ * narrower column — this file was edited in place rather than patched with
+ * a follow-up migration, which is the one situation where that's safe (see
+ * repo convention: migrations are otherwise always new files, never
+ * edited, once real data exists).
  */
 export class InitLibraryServiceSchema1737000700000 implements MigrationInterface {
   name = 'InitLibraryServiceSchema1737000700000';
@@ -18,7 +28,7 @@ export class InitLibraryServiceSchema1737000700000 implements MigrationInterface
       CREATE TABLE roles (
         id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name          VARCHAR(50) NOT NULL UNIQUE,
-        description   VARCHAR(255),
+        description   VARCHAR(500),
         is_system     BOOLEAN NOT NULL DEFAULT false,
         created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
       );
