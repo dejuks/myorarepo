@@ -115,6 +115,27 @@ export const theme = createTheme({
         },
       },
     },
+    /**
+     * `background.paper` (used by MuiPaper's default "elevation" variant,
+     * which Dialog/Menu/Select/Autocomplete popups all render on) is a
+     * translucent 70%-opacity white, which reads fine for in-page cards
+     * sitting on the page's own soft gradient — but a modal floats over
+     * whatever page content is directly behind it, and at 70% opacity that
+     * content shows through clearly enough to visually collide with the
+     * dialog's own text (e.g. two overlapping paragraphs becoming
+     * illegible). Dialogs specifically need a solid, opaque surface —
+     * unlike page-content Paper/Card surfaces, translucency here is a
+     * legibility bug, not part of the glass aesthetic.
+     */
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          background: '#fdfbfa',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+        },
+      },
+    },
     MuiTableCell: {
       styleOverrides: {
         head: {
