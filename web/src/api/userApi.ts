@@ -1,6 +1,6 @@
 import { apiClient, toApiErrorInfo, unwrap } from '@/api/client';
 import type { ApiEnvelope } from '@/types/api';
-import type { PaginatedResult, Role, User, UserStatus } from '@/types/domain';
+import type { PaginatedResult, Permission, Role, User, UserStatus } from '@/types/domain';
 
 export function getMe(): Promise<User> {
   return unwrap(apiClient.get<ApiEnvelope<User>>('/users/me'));
@@ -101,4 +101,28 @@ export async function deleteRole(id: string): Promise<void> {
   } catch (err) {
     throw toApiErrorInfo(err);
   }
+}
+
+/** Requires roles.manage_catalog. The fixed catalog powering the checkbox editor on a role's edit view. */
+export function listPermissions(): Promise<Permission[]> {
+  return unwrap(apiClient.get<ApiEnvelope<Permission[]>>('/permissions'));
+}
+
+export interface RolePermissions {
+  role: Role;
+  permissionKeys: string[];
+}
+
+/** Requires roles.manage_catalog. */
+export function getRolePermissions(roleId: string): Promise<RolePermissions> {
+  return unwrap(apiClient.get<ApiEnvelope<RolePermissions>>(`/roles/${roleId}/permissions`));
+}
+
+/**
+ * Requires roles.manage_catalog. Replaces the role's ENTIRE permission set
+ * with `permissionKeys` — not a diff. Takes effect for every user holding
+ * this role on their very next request; no re-login required.
+ */
+export function setRolePermissions(roleId: string, permissionKeys: string[]): Promise<RolePermissions> {
+  return unwrap(apiClient.put<ApiEnvelope<RolePermissions>>(`/roles/${roleId}/permissions`, { permissionKeys }));
 }

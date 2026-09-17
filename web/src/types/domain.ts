@@ -33,6 +33,17 @@ export interface Role {
   createdAt: string;
 }
 
+/** Mirrors services/user-service/src/domain/entities/permission.entity.ts — a fixed, code-defined catalog entry. */
+export interface Permission {
+  id: string;
+  key: string;
+  /** Checkbox group heading, e.g. "User Management" — mirrors the GitHub OAuth "Select scopes" UI. */
+  category: string;
+  label: string;
+  description: string | null;
+  createdAt: string;
+}
+
 /** Mirrors services/auth-service/src/application/dto/auth-response.dto.ts */
 export interface AuthResponse {
   accessToken: string;

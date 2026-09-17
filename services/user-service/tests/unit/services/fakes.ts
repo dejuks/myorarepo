@@ -2,9 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { User, UserStatus } from '@domain/entities/user.entity';
 import { Role } from '@domain/entities/role.entity';
 import { UserRoleAssignment } from '@domain/entities/user-role-assignment.entity';
+import { Permission } from '@domain/entities/permission.entity';
 import { IUserRepository, ListUsersFilter, PaginatedResult } from '@domain/repositories/user.repository.interface';
 import { IRoleRepository } from '@domain/repositories/role.repository.interface';
 import { IUserRoleAssignmentRepository } from '@domain/repositories/user-role-assignment.repository.interface';
+import { IPermissionRepository } from '@domain/repositories/permission.repository.interface';
+import { IRolePermissionRepository } from '@domain/repositories/role-permission.repository.interface';
 
 export class FakeUserRepository implements IUserRepository {
   public rows = new Map<string, User>();
@@ -118,5 +121,63 @@ export class FakeUserRoleAssignmentRepository implements IUserRoleAssignmentRepo
   }
   async isAssigned(userId: string, roleId: string) {
     return this.rows.some((r) => r.userId === userId && r.roleId === roleId);
+  }
+}
+
+export class FakePermissionRepository implements IPermissionRepository {
+  public rows = new Map<string, Permission>();
+
+  /** Seeds a fixed catalog like the real migration does. Returns key -> id for convenience in tests. */
+  seed(entries: Array<{ key: string; category: string; label: string }>): Record<string, string> {
+    const ids: Record<string, string> = {};
+    for (const entry of entries) {
+      const permission: Permission = { id: uuidv4(), key: entry.key, category: entry.category, label: entry.label, description: null, createdAt: new Date() };
+      this.rows.set(permission.id, permission);
+      ids[entry.key] = permission.id;
+    }
+    return ids;
+  }
+
+  async listAll() {
+    return [...this.rows.values()];
+  }
+  async findByKey(key: string) {
+    return [...this.rows.values()].find((p) => p.key === key) ?? null;
+  }
+  async findByKeys(keys: string[]) {
+    return [...this.rows.values()].filter((p) => keys.includes(p.key));
+  }
+}
+
+export class FakeRolePermissionRepository implements IRolePermissionRepository {
+  /** roleId -> Set<permissionId> */
+  public grants = new Map<string, Set<string>>();
+
+  constructor(
+    private readonly roleRepo: FakeRoleRepository,
+    private readonly permissionRepo: FakePermissionRepository,
+  ) {}
+
+  async listPermissionKeysForRole(roleId: string): Promise<string[]> {
+    const permissionIds = [...(this.grants.get(roleId) ?? [])];
+    const keys: string[] = [];
+    for (const id of permissionIds) {
+      const permission = this.permissionRepo.rows.get(id);
+      if (permission) keys.push(permission.key);
+    }
+    return keys;
+  }
+
+  async listPermissionKeysForRoleNames(roleNames: string[]): Promise<string[]> {
+    const roleIds = [...this.roleRepo.rows.values()].filter((r) => roleNames.includes(r.name)).map((r) => r.id);
+    const keys = new Set<string>();
+    for (const roleId of roleIds) {
+      for (const key of await this.listPermissionKeysForRole(roleId)) keys.add(key);
+    }
+    return [...keys];
+  }
+
+  async setForRole(roleId: string, permissionIds: string[]): Promise<void> {
+    this.grants.set(roleId, new Set(permissionIds));
   }
 }

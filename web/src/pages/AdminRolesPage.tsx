@@ -22,7 +22,9 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { RolePermissionsDialog } from '@/components/RolePermissionsDialog';
 import { useRoles } from '@/hooks/useRoles';
 import { useCreateRole, useDeleteRole } from '@/hooks/useRoleAdminMutations';
 import { isValidRoleName, roleNameMessage } from '@/utils/validation';
@@ -42,6 +44,8 @@ export function AdminRolesPage() {
 
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [roleToEditPermissions, setRoleToEditPermissions] = useState<Role | null>(null);
 
   function openCreateDialog() {
     setName('');
@@ -134,6 +138,15 @@ export function AdminRolesPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
+                    <Tooltip title="Edit permissions">
+                      <IconButton
+                        size="small"
+                        aria-label={`edit permissions for role ${role.name}`}
+                        onClick={() => setRoleToEditPermissions(role)}
+                      >
+                        <KeyOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title={role.isSystem ? 'System roles cannot be deleted' : 'Delete role'}>
                       <span>
                         <IconButton
@@ -200,6 +213,8 @@ export function AdminRolesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setRoleToDelete(null)}
       />
+
+      <RolePermissionsDialog role={roleToEditPermissions} onClose={() => setRoleToEditPermissions(null)} />
     </Box>
   );
 }
