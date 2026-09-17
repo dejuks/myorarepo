@@ -25,8 +25,7 @@ describe('MemberRoleService', () => {
 
     const result = await memberRoleService.assignRole(userId, 'registered_editor', actorUserId);
 
-    expect(result.userId).toBe(userId);
-    expect(result.roles).toEqual(['REGISTERED_EDITOR']);
+    expect(result).toEqual(['REGISTERED_EDITOR']);
     expect(await memberRoleService.listRolesForUser(userId)).toEqual(['REGISTERED_EDITOR']);
   });
 
@@ -48,7 +47,7 @@ describe('MemberRoleService', () => {
     await memberRoleService.assignRole(userId, 'ADMINISTRATOR', actorUserId);
     const result = await memberRoleService.assignRole(userId, 'ADMINISTRATOR', actorUserId);
 
-    expect(result.roles).toEqual(['ADMINISTRATOR']);
+    expect(result).toEqual(['ADMINISTRATOR']);
   });
 
   it('throws NotFoundError assigning a role that does not exist', async () => {
@@ -62,7 +61,7 @@ describe('MemberRoleService', () => {
 
     const result = await memberRoleService.revokeRole(userId, 'OVERSIGHTER');
 
-    expect(result.roles).toEqual(['ADMINISTRATOR']);
+    expect(result).toEqual(['ADMINISTRATOR']);
     expect(await memberRoleService.listRolesForUser(userId)).toEqual(['ADMINISTRATOR']);
   });
 
@@ -73,6 +72,6 @@ describe('MemberRoleService', () => {
   it('is a no-op revoking a role the member never had', async () => {
     const userId = uuidv4();
     const result = await memberRoleService.revokeRole(userId, 'BUREAUCRAT');
-    expect(result.roles).toEqual([]);
+    expect(result).toEqual([]);
   });
 });

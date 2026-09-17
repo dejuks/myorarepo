@@ -7,10 +7,15 @@ import { UnauthorizedError } from '@common/errors/app-error';
 export class MemberRoleController {
   constructor(private readonly memberRoleService: MemberRoleService) {}
 
+  // `data` here is a bare string[] of role names — not { userId, roles } — to match every
+  // other module service and the frontend's single shared moduleApi.ts client (see
+  // wiki-service's member-role.service.ts for the fuller writeup of this exact bug: the
+  // wrapped shape silently broke useMyManagedModules()'s self-check, which decides whether
+  // a non-platform-ADMIN module manager sees their module's "— Roles" sidebar link at all).
   list = async (req: AuthenticatedRequest & { params: { userId: string } }, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roles = await this.memberRoleService.listRolesForUser(req.params.userId);
-      res.status(200).json({ success: true, data: { userId: req.params.userId, roles } });
+      res.status(200).json({ success: true, data: roles });
     } catch (err) {
       next(err);
     }
@@ -24,7 +29,7 @@ export class MemberRoleController {
     try {
       if (!req.user) throw new UnauthorizedError();
       const roles = await this.memberRoleService.assignRole(req.params.userId, req.body.roleName, req.user.userId);
-      res.status(201).json({ success: true, data: { userId: req.params.userId, roles } });
+      res.status(201).json({ success: true, data: roles });
     } catch (err) {
       next(err);
     }

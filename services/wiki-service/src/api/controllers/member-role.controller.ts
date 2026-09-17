@@ -9,7 +9,7 @@ export class MemberRoleController {
   list = async (req: Request<{ userId: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roles = await this.memberRoleService.listRolesForUser(req.params.userId);
-      res.status(200).json({ success: true, data: { userId: req.params.userId, roles } });
+      res.status(200).json({ success: true, data: roles });
     } catch (err) {
       next(err);
     }
@@ -22,8 +22,8 @@ export class MemberRoleController {
   ): Promise<void> => {
     try {
       if (!req.user) throw new Error('Unauthenticated request reached assign handler');
-      const result = await this.memberRoleService.assignRole(req.params.userId, req.body.roleName, req.user.userId);
-      res.status(200).json({ success: true, data: result });
+      const roles = await this.memberRoleService.assignRole(req.params.userId, req.body.roleName, req.user.userId);
+      res.status(200).json({ success: true, data: roles });
     } catch (err) {
       next(err);
     }
@@ -31,8 +31,8 @@ export class MemberRoleController {
 
   revoke = async (req: Request<{ userId: string; roleName: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.memberRoleService.revokeRole(req.params.userId, req.params.roleName);
-      res.status(200).json({ success: true, data: result });
+      const roles = await this.memberRoleService.revokeRole(req.params.userId, req.params.roleName);
+      res.status(200).json({ success: true, data: roles });
     } catch (err) {
       next(err);
     }
