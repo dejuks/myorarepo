@@ -64,7 +64,7 @@ describe('AdminUsersPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<TestApp />, { route: '/admin/users', preloadedAuth: { isAuthenticated: true } });
 
-    await screen.findByText('Users');
+    await screen.findByRole('heading', { name: 'Users' });
     await user.click(screen.getByRole('button', { name: /create user/i }));
 
     await screen.findByRole('heading', { name: /create a platform user/i });

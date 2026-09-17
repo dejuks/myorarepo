@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
 import Pagination from '@mui/material/Pagination';
 import Paper from '@mui/material/Paper';
@@ -21,10 +23,12 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import HomeIcon from '@mui/icons-material/HomeOutlined';
 import { CreateUserDialog } from '@/components/CreateUserDialog';
 import { useUsers } from '@/hooks/useUsers';
 import { UserStatus } from '@/types/domain';
 import { userStatusChipColor } from '@/utils/userStatus';
+import { glass } from '@/theme';
 import type { ApiErrorInfo } from '@/types/api';
 
 const PAGE_SIZE = 20;
@@ -71,8 +75,23 @@ export function AdminUsersPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h4">Users</Typography>
+      <Breadcrumbs sx={{ mb: 1 }}>
+        <Link underline="hover" color="text.secondary" href="/dashboard" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <HomeIcon fontSize="small" />
+          Home
+        </Link>
+        <Link underline="hover" color="text.secondary" href="/dashboard">
+          Administration
+        </Link>
+        <Typography color="text.primary" sx={{ fontWeight: 600 }}>
+          Users
+        </Typography>
+      </Breadcrumbs>
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} sx={{ mb: 2 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          Users
+        </Typography>
         <Button variant="contained" onClick={() => setCreateUserOpen(true)}>
           Create user
         </Button>
@@ -117,8 +136,12 @@ export function AdminUsersPage() {
       )}
 
       {usersQuery.data && usersQuery.data.items.length > 0 && (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
+        <TableContainer
+          component={Paper}
+          variant="outlined"
+          sx={{ ...glass.surface, borderRadius: 3, maxHeight: { xs: 'none', md: 560 } }}
+        >
+          <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>

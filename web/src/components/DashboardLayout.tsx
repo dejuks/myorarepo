@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { ReactNode, MouseEvent } from 'react';
 import { Link as RouterLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { alpha, useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
 import Badge from '@mui/material/Badge';
@@ -30,6 +32,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PeopleAltIcon from '@mui/icons-material/PeopleAltOutlined';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
+import MenuIcon from '@mui/icons-material/Menu';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalanceOutlined';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -37,9 +41,11 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useMyManagedModules } from '@/hooks/useMyManagedModules';
 import { logout as logoutRequest } from '@/api/authApi';
 import { loggedOut } from '@/features/auth/authSlice';
+import { gradients, glass } from '@/theme';
+import { Footer } from '@/components/Footer';
 import type { ModuleConfig } from '@/config/modules';
 
-const DRAWER_WIDTH = 240;
+const DRAWER_WIDTH = 264;
 
 interface NavItem {
   label: string;
@@ -88,6 +94,8 @@ function buildModuleNavItems(modules: ModuleConfig[]): NavItem[] {
 }
 
 export function DashboardLayout() {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,6 +108,7 @@ export function DashboardLayout() {
   const moduleNavItems = buildModuleNavItems(managedModules);
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function openMenu(event: MouseEvent<HTMLElement>) {
     setMenuAnchor(event.currentTarget);
@@ -124,13 +133,148 @@ export function DashboardLayout() {
 
   const initials = currentUser ? `${currentUser.firstName[0] ?? ''}${currentUser.lastName[0] ?? ''}`.toUpperCase() : '';
 
+  function isSelected(to: string) {
+    return location.pathname === to || location.pathname.startsWith(`${to}/`);
+  }
+
+  function handleNavClick() {
+    if (!isDesktop) setMobileOpen(false);
+  }
+
+  const navListSx = {
+    '& .MuiListItemButton-root': {
+      mx: 1.5,
+      my: 0.25,
+      borderRadius: 2,
+      color: alpha('#ffffff', 0.85),
+      '& .MuiListItemIcon-root': { color: alpha('#ffffff', 0.7), minWidth: 40 },
+      '&:hover': { background: alpha('#ffffff', 0.08) },
+      '&.Mui-selected': {
+        background: alpha('#ffffff', 0.16),
+        color: '#ffffff',
+        '& .MuiListItemIcon-root': { color: '#ffffff' },
+        '&:hover': { background: alpha('#ffffff', 0.2) },
+      },
+    },
+  };
+
+  const drawerContent = (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Toolbar sx={{ gap: 1.5 }}>
+        <AccountBalanceIcon sx={{ color: '#ffffff' }} />
+        <Typography variant="h6" noWrap sx={{ color: '#ffffff', fontWeight: 700 }}>
+          ORA Platform
+        </Typography>
+      </Toolbar>
+      <Divider sx={{ borderColor: alpha('#ffffff', 0.12) }} />
+      <Box sx={{ overflowY: 'auto', flexGrow: 1, py: 1 }}>
+        <List sx={navListSx}>
+          {primaryNavItems.map((item) => (
+            <ListItemButton
+              key={item.to}
+              component={RouterLink}
+              to={item.to}
+              selected={location.pathname === item.to}
+              onClick={handleNavClick}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          ))}
+        </List>
+        {isAdmin && (
+          <>
+            <Divider sx={{ borderColor: alpha('#ffffff', 0.12), my: 1 }} />
+            <List
+              sx={navListSx}
+              subheader={
+                <Typography
+                  variant="overline"
+                  sx={{ pl: 3, display: 'block', pt: 1, color: alpha('#ffffff', 0.55), letterSpacing: '0.08em' }}
+                >
+                  Administration
+                </Typography>
+              }
+            >
+              {adminNavItems.map((item) => (
+                <ListItemButton key={item.to} component={RouterLink} to={item.to} selected={isSelected(item.to)} onClick={handleNavClick}>
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {managedModules.length > 0 && (
+          <>
+            <Divider sx={{ borderColor: alpha('#ffffff', 0.12), my: 1 }} />
+            <List
+              sx={navListSx}
+              subheader={
+                <Tooltip
+                  title="Each module manages its own roles independently — see docs/01-architecture.md §2a. Content management (submissions, cataloging, etc.) isn't built yet."
+                  placement="right"
+                >
+                  <Typography
+                    variant="overline"
+                    sx={{ pl: 3, display: 'block', pt: 1, color: alpha('#ffffff', 0.55), letterSpacing: '0.08em' }}
+                  >
+                    Module roles
+                  </Typography>
+                </Tooltip>
+              }
+            >
+              {moduleNavItems.map((item) => (
+                <ListItemButton
+                  key={item.to}
+                  component={RouterLink}
+                  to={item.to}
+                  selected={location.pathname === item.to}
+                  onClick={handleNavClick}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" color="primary" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (t) => t.zIndex.drawer + 1,
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          ml: { md: `${DRAWER_WIDTH}px` },
+          backgroundImage: gradients.primary,
+          ...glass.onBrand,
+          boxShadow: (t) => `0 4px 24px ${alpha(t.palette.primary.dark, 0.25)}`,
+        }}
+      >
         <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={() => setMobileOpen((open) => !open)}
+            sx={{ mr: 2, display: { md: 'none' } }}
+            aria-label="toggle navigation"
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ flexGrow: 1, fontWeight: 700, display: { xs: 'block', md: 'none' } }}
+          >
             ORA Platform
           </Typography>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
           <Tooltip title="Notifications">
             <IconButton color="inherit" component={RouterLink} to="/notifications" aria-label="notifications">
               <Badge badgeContent={unreadCount ?? 0} color="secondary" max={99}>
@@ -163,88 +307,60 @@ export function DashboardLayout() {
         </Toolbar>
       </AppBar>
 
+      {/* Desktop: permanent glass sidebar */}
       <Drawer
         variant="permanent"
         sx={{
           width: DRAWER_WIDTH,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+          display: { xs: 'none', md: 'block' },
+          [`& .MuiDrawer-paper`]: {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            border: 'none',
+            backgroundImage: gradients.primary,
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      {/* Mobile / tablet: temporary glass sidebar, toggled from the AppBar */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          [`& .MuiDrawer-paper`]: {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            border: 'none',
+            backgroundImage: gradients.primary,
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          px: { xs: 2, sm: 3, md: 4 },
+          pb: { xs: 2, sm: 3 },
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: 'auto' }}>
-          <List>
-            {primaryNavItems.map((item) => (
-              <ListItemButton
-                key={item.to}
-                component={RouterLink}
-                to={item.to}
-                selected={location.pathname === item.to}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            ))}
-          </List>
-          {isAdmin && (
-            <>
-              <Divider />
-              <List
-                subheader={
-                  <Typography variant="overline" color="text.secondary" sx={{ pl: 2, display: 'block', pt: 1 }}>
-                    Administration
-                  </Typography>
-                }
-              >
-                {adminNavItems.map((item) => (
-                  <ListItemButton
-                    key={item.to}
-                    component={RouterLink}
-                    to={item.to}
-                    selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                ))}
-              </List>
-            </>
-          )}
-          {managedModules.length > 0 && (
-            <>
-              <Divider />
-              <List
-                subheader={
-                  <Tooltip
-                    title="Each module manages its own roles independently — see docs/01-architecture.md §2a. Content management (submissions, cataloging, etc.) isn't built yet."
-                    placement="right"
-                  >
-                    <Typography variant="overline" color="text.secondary" sx={{ pl: 2, display: 'block', pt: 1 }}>
-                      Module roles
-                    </Typography>
-                  </Tooltip>
-                }
-              >
-                {moduleNavItems.map((item) => (
-                  <ListItemButton
-                    key={item.to}
-                    component={RouterLink}
-                    to={item.to}
-                    selected={location.pathname === item.to}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                ))}
-              </List>
-            </>
-          )}
+        <Box sx={{ flexGrow: 1, pt: { xs: 2, sm: 3 } }}>
+          <Outlet />
         </Box>
-      </Drawer>
-
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh', p: 3 }}>
-        <Toolbar />
-        <Outlet />
+        <Footer />
       </Box>
     </Box>
   );
