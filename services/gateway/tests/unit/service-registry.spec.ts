@@ -18,6 +18,14 @@ describe('service-registry', () => {
     it('returns undefined for an unknown path', () => {
       expect(findRoute('/api/v1/nonexistent')).toBeUndefined();
     });
+
+    it('routes the permission catalog (/permissions) to user-service, as a distinct top-level path from /roles', () => {
+      expect(findRoute('/api/v1/permissions')?.serviceName).toBe('user-service');
+    });
+
+    it('routes a role\'s permission sub-path (/roles/:id/permissions) to user-service via the /roles prefix', () => {
+      expect(findRoute('/api/v1/roles/some-id/permissions')?.serviceName).toBe('user-service');
+    });
   });
 
   describe('isPublicOverride', () => {

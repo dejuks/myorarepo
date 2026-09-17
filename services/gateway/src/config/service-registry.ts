@@ -24,6 +24,8 @@ export const serviceRoutes: ServiceRoute[] = [
   { pathPrefix: '/api/v1/auth', target: env.AUTH_SERVICE_URL, serviceName: 'auth-service', requiresAuth: false, implemented: true },
   { pathPrefix: '/api/v1/users', target: env.USER_SERVICE_URL, serviceName: 'user-service', requiresAuth: true, implemented: true },
   { pathPrefix: '/api/v1/roles', target: env.USER_SERVICE_URL, serviceName: 'user-service', requiresAuth: true, implemented: true },
+  // Separate top-level path (not a /roles sub-path) for the fixed permission catalog — see PermissionController.list in user-service.
+  { pathPrefix: '/api/v1/permissions', target: env.USER_SERVICE_URL, serviceName: 'user-service', requiresAuth: true, implemented: true },
   { pathPrefix: '/api/v1/researchers', target: env.RESEARCHER_SERVICE_URL, serviceName: 'researcher-service', requiresAuth: true, implemented: true },
   { pathPrefix: '/api/v1/repository', target: env.REPOSITORY_SERVICE_URL, serviceName: 'repository-service', requiresAuth: true, implemented: true },
   { pathPrefix: '/api/v1/journals', target: env.JOURNAL_SERVICE_URL, serviceName: 'journal-service', requiresAuth: true, implemented: true },
