@@ -61,6 +61,27 @@ To turn it on — recommended before you do anything resembling a production tes
 
 The walkthroughs below assume verification is **off** (the default) unless a step says otherwise.
 
+### 2c. Seed one demo account per Oromo Wikipedia role
+
+The super-admin account (§2a) can do everything, which makes it useless for checking that the wiki module's role-based gating actually differs per role. `scripts/seed-wiki-demo-users.mjs` creates one real, logged-in-able account for each role in the spec's "Roles and Responsibilities" table and assigns it the matching `wiki-service` role — no manual Swagger clicking required:
+
+```bash
+node scripts/seed-wiki-demo-users.mjs
+```
+
+It goes through the same public APIs the frontend uses (create profile → register credentials → wait for activation → assign the wiki role) using the super-admin account from §2a to authenticate the lookup/assignment calls, so it needs the stack up and that account reachable first. It's safe to re-run — an account that already exists is reused, not recreated, and re-assigning a role someone already has is a no-op.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Registered Editor | `wiki-editor@ora.local` | `DemoPass123!` |
+| Administrator (Sysop) | `wiki-admin@ora.local` | `DemoPass123!` |
+| Bureaucrat & Global Steward | `wiki-bureaucrat@ora.local` | `DemoPass123!` |
+| Oversighter / CheckUser | `wiki-oversighter@ora.local` | `DemoPass123!` |
+
+(Override any of `GATEWAY_URL`, `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `DEMO_PASSWORD` as env vars if your stack doesn't use the compose defaults.)
+
+Log in as each at http://localhost:3000/login and open an article to see what differs: every one of them can create/edit articles and submit for review (no extra gate on that — see `services/wiki-service/README.md` "Editing model"), but only `wiki-admin`/`wiki-bureaucrat` see the Workflow panel's "Start review" / "Record decision" / "Publish" / "Archive" buttons, and only `wiki-bureaucrat` sees **Wiki → Roles** in the sidebar to assign/revoke other members' roles. `wiki-oversighter` behaves like a Registered Editor today — revision suppression and IP/abuse tooling are a later phase (see `docs/01-architecture.md`'s "Future phases" note under the wiki content sections) — it's seeded now so the role and account already exist for when that phase lands.
+
 **Change `SUPER_ADMIN_PASSWORD` (and ideally `SUPER_ADMIN_EMAIL`) before running this anywhere beyond your own machine** — set them in a `.env` file next to `infra/docker-compose.yml` (Compose picks it up automatically) rather than editing the compose file itself. Setting `SUPER_ADMIN_EMAIL` blank disables the seed entirely for a given service.
 
 ## 3. Test on the interface
