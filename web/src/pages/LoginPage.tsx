@@ -95,7 +95,7 @@ export function LoginPage() {
     <AuthLayout title="Sign in" subtitle="Welcome back — sign in to continue.">
       {state?.registered && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Account created. Check your email for a verification link before signing in.
+          Account created. Sign in below — if email verification is required, check your email for a link first.
         </Alert>
       )}
       {submitError && (

@@ -22,7 +22,8 @@ export class InitAuthSchema1737000000000 implements MigrationInterface {
         'LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'TOKEN_REFRESH',
         'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED',
         'ACCOUNT_LOCKED', 'MFA_ENABLED', 'MFA_DISABLED',
-        'EMAIL_VERIFICATION_REQUESTED', 'EMAIL_VERIFICATION_COMPLETED'
+        'EMAIL_VERIFICATION_REQUESTED', 'EMAIL_VERIFICATION_COMPLETED',
+        'PLATFORM_SETTINGS_UPDATED'
       );
     `);
 
@@ -97,9 +98,23 @@ export class InitAuthSchema1737000000000 implements MigrationInterface {
       CREATE INDEX idx_auth_audit_logs_user_id ON auth_audit_logs(user_id);
       CREATE INDEX idx_auth_audit_logs_created_at ON auth_audit_logs(created_at);
     `);
+
+    // Single-row runtime settings table — see domain/entities/platform-setting.entity.ts.
+    // The row itself is seeded by bootstrapPlatformSettings() at service boot, not here,
+    // since its initial value comes from the REQUIRE_EMAIL_VERIFICATION env var.
+    await queryRunner.query(`
+      CREATE TABLE platform_settings (
+        id                            SMALLINT PRIMARY KEY DEFAULT 1,
+        require_email_verification    BOOLEAN NOT NULL DEFAULT true,
+        updated_by                    UUID,
+        updated_at                    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CONSTRAINT platform_settings_singleton CHECK (id = 1)
+      );
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE IF EXISTS platform_settings;`);
     await queryRunner.query(`DROP TABLE IF EXISTS auth_audit_logs;`);
     await queryRunner.query(`DROP TABLE IF EXISTS email_verification_tokens;`);
     await queryRunner.query(`DROP TABLE IF EXISTS password_reset_tokens;`);

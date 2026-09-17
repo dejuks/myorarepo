@@ -9,6 +9,7 @@ import { ResetPasswordDto } from '@application/dto/reset-password.dto';
 import { VerifyEmailDto } from '@application/dto/verify-email.dto';
 import { ResendVerificationDto } from '@application/dto/resend-verification.dto';
 import { VerifyMfaDto } from '@application/dto/verify-mfa.dto';
+import { UpdatePlatformSettingsDto } from '@application/dto/update-platform-settings.dto';
 import { AuthenticatedRequest } from '@api/middleware/auth.middleware';
 import { decodeTokenExpiry } from '@common/utils/token.util';
 
@@ -145,6 +146,29 @@ export class AuthController {
       if (!req.user) throw new Error('Unauthenticated request reached MFA handler');
       await this.authService.disableMfa(req.user.userId);
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getPlatformSettings = async (_req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const settings = await this.authService.getPlatformSettings();
+      res.status(200).json({ success: true, data: settings });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updatePlatformSettings = async (
+    req: AuthenticatedRequest & Request<unknown, unknown, UpdatePlatformSettingsDto>,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      if (!req.user) throw new Error('Unauthenticated request reached settings handler');
+      const settings = await this.authService.updatePlatformSettings(req.body, req.user.userId);
+      res.status(200).json({ success: true, data: settings });
     } catch (err) {
       next(err);
     }

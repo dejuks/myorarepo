@@ -29,6 +29,7 @@ import ArticleIcon from '@mui/icons-material/ArticleOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PeopleAltIcon from '@mui/icons-material/PeopleAltOutlined';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -56,6 +57,7 @@ const primaryNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { label: 'Users', to: '/admin/users', icon: <PeopleAltIcon /> },
   { label: 'Roles', to: '/admin/roles', icon: <AdminPanelSettingsIcon /> },
+  { label: 'Settings', to: '/admin/settings', icon: <SettingsIcon /> },
 ];
 
 const moduleIcons: Record<string, ReactNode> = {

@@ -39,16 +39,19 @@ export const env = cleanEnv(process.env, {
   // renders HTML itself, it just hands notification-service a ready-made URL.
   FRONTEND_URL: str({ default: 'http://localhost:3000' }),
 
-  // Gates the whole email-verification requirement (see AuthService.register /
-  // assertAccountIsUsable). Defaults to true — the production-correct
-  // setting, where every new account (self-registered or admin/module-admin
-  // -created) must click an emailed link before it can log in. Set to
-  // 'false' only in local/dev environments that have no real mail delivery
-  // wired up (the console email provider just logs the link, which is a
-  // hassle to fetch on every test account): accounts are then created
-  // ACTIVE immediately, no token is issued, and no verification email is
-  // sent. Never disable this in staging/production.
-  REQUIRE_EMAIL_VERIFICATION: bool({ default: true }),
+  // ONE-TIME SEED VALUE ONLY — read once, by bootstrapPlatformSettings(), to
+  // populate the platform_settings.require_email_verification row the very
+  // first time this service boots against a fresh database. After that
+  // first boot, this env var is never consulted again: the DB row is the
+  // real, live setting, and the platform super-admin can flip it at any
+  // time from Admin -> Settings (PATCH /auth/settings) with no redeploy or
+  // restart — see AuthService.getPlatformSettings/updatePlatformSettings
+  // and web/src/pages/PlatformSettingsPage.tsx. Defaults to false here so a
+  // fresh install works immediately without anyone fetching a link out of
+  // notification-service's console logs; turn it on (either via this env
+  // var before first boot, or via the Settings toggle afterwards) before
+  // going anywhere near staging/production.
+  REQUIRE_EMAIL_VERIFICATION: bool({ default: false }),
 
   BCRYPT_SALT_ROUNDS: num({ default: 12 }),
 

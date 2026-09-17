@@ -6,7 +6,9 @@ import { AppDataSource } from '@infrastructure/database/data-source';
 import { rabbitMqPublisher } from '@infrastructure/messaging/rabbitmq.publisher';
 import { redisClient } from '@infrastructure/cache/redis.client';
 import { UserCredentialRepository } from '@infrastructure/repositories/user-credential.repository';
+import { PlatformSettingsRepository } from '@infrastructure/repositories/platform-settings.repository';
 import { bootstrapSuperAdmin } from '@infrastructure/bootstrap/super-admin.bootstrap';
+import { bootstrapPlatformSettings } from '@infrastructure/bootstrap/platform-settings.bootstrap';
 
 async function bootstrap(): Promise<void> {
   await AppDataSource.initialize();
@@ -16,6 +18,8 @@ async function bootstrap(): Promise<void> {
     email: env.SUPER_ADMIN_EMAIL,
     password: env.SUPER_ADMIN_PASSWORD,
   });
+
+  await bootstrapPlatformSettings(new PlatformSettingsRepository(), env.REQUIRE_EMAIL_VERIFICATION);
 
   await rabbitMqPublisher.connect();
 

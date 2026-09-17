@@ -69,3 +69,19 @@ export interface ChangePasswordPayload {
 export function changePassword(payload: ChangePasswordPayload): Promise<void> {
   return unwrap(apiClient.post<ApiEnvelope<void>>('/auth/change-password', payload));
 }
+
+export interface PlatformSettings {
+  requireEmailVerification: boolean;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+/** ADMIN only. See services/auth-service's PlatformSetting entity — a single runtime toggle, no restart required. */
+export function getPlatformSettings(): Promise<PlatformSettings> {
+  return unwrap(apiClient.get<ApiEnvelope<PlatformSettings>>('/auth/settings'));
+}
+
+/** ADMIN only. Applies to every current and future user immediately. */
+export function updatePlatformSettings(requireEmailVerification: boolean): Promise<PlatformSettings> {
+  return unwrap(apiClient.patch<ApiEnvelope<PlatformSettings>>('/auth/settings', { requireEmailVerification }));
+}

@@ -3,10 +3,12 @@ import { UserCredential, AccountStatus } from '@domain/entities/user-credential.
 import { RefreshToken } from '@domain/entities/refresh-token.entity';
 import { PasswordResetToken } from '@domain/entities/password-reset-token.entity';
 import { EmailVerificationToken } from '@domain/entities/email-verification-token.entity';
+import { PlatformSetting } from '@domain/entities/platform-setting.entity';
 import { IUserCredentialRepository } from '@domain/repositories/user-credential.repository.interface';
 import { IRefreshTokenRepository } from '@domain/repositories/refresh-token.repository.interface';
 import { IPasswordResetTokenRepository } from '@domain/repositories/password-reset-token.repository.interface';
 import { IEmailVerificationTokenRepository } from '@domain/repositories/email-verification-token.repository.interface';
+import { IPlatformSettingsRepository } from '@domain/repositories/platform-settings.repository.interface';
 import { IAuthAuditLogRepository } from '@domain/repositories/auth-audit-log.repository.interface';
 
 /**
@@ -175,6 +177,38 @@ export class FakeEmailVerificationTokenRepository implements IEmailVerificationT
     for (const row of this.rows.values()) {
       if (row.userId === userId && !row.usedAt) row.usedAt = new Date();
     }
+  }
+}
+
+/**
+ * Defaults to requireEmailVerification: true (matching the safe fallback in
+ * AuthService.isEmailVerificationRequired) — tests that want the
+ * REQUIRE_EMAIL_VERIFICATION=false path construct this with `false` up
+ * front, or call `.update()`, same as a real admin flipping the toggle.
+ */
+export class FakePlatformSettingsRepository implements IPlatformSettingsRepository {
+  public row: PlatformSetting | null;
+
+  constructor(requireEmailVerification = true) {
+    this.row = {
+      id: 1,
+      requireEmailVerification,
+      updatedBy: null,
+      updatedAt: new Date(),
+    };
+  }
+
+  async get() {
+    return this.row;
+  }
+  async seed(defaults: Partial<PlatformSetting>) {
+    this.row = { id: 1, requireEmailVerification: true, updatedBy: null, updatedAt: new Date(), ...defaults };
+    return this.row;
+  }
+  async update(changes: Partial<PlatformSetting>) {
+    if (!this.row) throw new Error('not seeded');
+    this.row = { ...this.row, ...changes, updatedAt: new Date() };
+    return this.row;
   }
 }
 

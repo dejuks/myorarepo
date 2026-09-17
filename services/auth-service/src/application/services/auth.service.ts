@@ -3,6 +3,7 @@ import { IUserCredentialRepository } from '@domain/repositories/user-credential.
 import { IRefreshTokenRepository } from '@domain/repositories/refresh-token.repository.interface';
 import { IPasswordResetTokenRepository } from '@domain/repositories/password-reset-token.repository.interface';
 import { IEmailVerificationTokenRepository } from '@domain/repositories/email-verification-token.repository.interface';
+import { IPlatformSettingsRepository } from '@domain/repositories/platform-settings.repository.interface';
 import { IAuthAuditLogRepository } from '@domain/repositories/auth-audit-log.repository.interface';
 import { AccountStatus } from '@domain/entities/user-credential.entity';
 import { AuthAuditEventType } from '@domain/entities/auth-audit-log.entity';
@@ -11,6 +12,8 @@ import { LoginDto } from '@application/dto/login.dto';
 import { ChangePasswordDto } from '@application/dto/change-password.dto';
 import { ResetPasswordDto } from '@application/dto/reset-password.dto';
 import { VerifyEmailDto } from '@application/dto/verify-email.dto';
+import { UpdatePlatformSettingsDto } from '@application/dto/update-platform-settings.dto';
+import { PlatformSettingsResponseDto } from '@application/dto/platform-settings-response.dto';
 import { AuthResponseDto } from '@application/dto/auth-response.dto';
 import { hashPassword, comparePassword } from '@common/utils/password.util';
 import {
@@ -48,6 +51,7 @@ export class AuthService {
     private readonly refreshTokenRepo: IRefreshTokenRepository,
     private readonly passwordResetTokenRepo: IPasswordResetTokenRepository,
     private readonly emailVerificationTokenRepo: IEmailVerificationTokenRepository,
+    private readonly platformSettingsRepo: IPlatformSettingsRepository,
     private readonly auditLogRepo: IAuthAuditLogRepository,
   ) {}
 
@@ -62,7 +66,7 @@ export class AuthService {
       throw new ConflictError('An account with this email already exists');
     }
 
-    const requireVerification = env.REQUIRE_EMAIL_VERIFICATION;
+    const requireVerification = await this.isEmailVerificationRequired();
     const passwordHash = await hashPassword(dto.password);
     const credential = await this.userCredentialRepo.create({
       userId: dto.userId,
@@ -90,21 +94,73 @@ export class AuthService {
   }
 
   /**
-   * The REQUIRE_EMAIL_VERIFICATION=false path (see config/env.ts) — dev/local
-   * only. The account was already created ACTIVE above, so this just does
-   * the other two things sendVerificationEmail's real counterpart,
-   * verifyEmail, would otherwise have done: records the audit trail and
-   * publishes auth.email_verification.completed so user-service's consumer
-   * still flips the matching profile PENDING -> ACTIVE. No token is created
-   * and no email is sent — there is nothing for the user to click.
+   * The path taken when the platform_settings.require_email_verification
+   * toggle is off (see getPlatformSettings/updatePlatformSettings — a
+   * super-admin can flip this at runtime for every user, from Admin ->
+   * Settings, with no restart). The account was already created ACTIVE
+   * above, so this just does the other two things sendVerificationEmail's
+   * real counterpart, verifyEmail, would otherwise have done: records the
+   * audit trail and publishes auth.email_verification.completed so
+   * user-service's consumer still flips the matching profile
+   * PENDING -> ACTIVE. No token is created and no email is sent — there is
+   * nothing for the user to click.
    */
   private async activateWithoutVerification(userId: string, email: string): Promise<void> {
     await this.auditLogRepo.record({
       userId,
       eventType: AuthAuditEventType.EMAIL_VERIFICATION_COMPLETED,
-      metadata: { autoVerified: true, reason: 'REQUIRE_EMAIL_VERIFICATION=false' },
+      metadata: { autoVerified: true, reason: 'require_email_verification=false' },
     });
     await rabbitMqPublisher.publish('auth.email_verification.completed', { userId, email });
+  }
+
+  /**
+   * Reads the live, runtime-toggleable setting (see PlatformSetting entity)
+   * rather than an env var — this is what makes REQUIRE_EMAIL_VERIFICATION
+   * changeable by a super-admin for every user without a redeploy. Falls
+   * back to requiring verification (the safe default) if the settings row
+   * is somehow missing, which should never happen once bootstrapPlatformSettings
+   * has run at least once (see server.ts).
+   */
+  private async isEmailVerificationRequired(): Promise<boolean> {
+    const settings = await this.platformSettingsRepo.get();
+    return settings?.requireEmailVerification ?? true;
+  }
+
+  /** Returns the current platform-wide settings — ADMIN only (see auth.routes.ts). */
+  async getPlatformSettings(): Promise<PlatformSettingsResponseDto> {
+    const settings = await this.platformSettingsRepo.get();
+    if (!settings) throw new NotFoundError('Platform settings have not been initialized');
+    return {
+      requireEmailVerification: settings.requireEmailVerification,
+      updatedAt: settings.updatedAt.toISOString(),
+      updatedBy: settings.updatedBy,
+    };
+  }
+
+  /**
+   * Flips a platform-wide setting for every current and future user —
+   * ADMIN only. Unlike everything else in this file, this has no per-user
+   * scope: it changes behavior for the whole platform immediately, with no
+   * restart, which is the entire point (see PlatformSetting entity).
+   */
+  async updatePlatformSettings(dto: UpdatePlatformSettingsDto, adminUserId: string): Promise<PlatformSettingsResponseDto> {
+    const settings = await this.platformSettingsRepo.update({
+      requireEmailVerification: dto.requireEmailVerification,
+      updatedBy: adminUserId,
+    });
+
+    await this.auditLogRepo.record({
+      userId: adminUserId,
+      eventType: AuthAuditEventType.PLATFORM_SETTINGS_UPDATED,
+      metadata: { requireEmailVerification: dto.requireEmailVerification },
+    });
+
+    return {
+      requireEmailVerification: settings.requireEmailVerification,
+      updatedAt: settings.updatedAt.toISOString(),
+      updatedBy: settings.updatedBy,
+    };
   }
 
   /**

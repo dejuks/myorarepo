@@ -52,11 +52,11 @@ export interface CreateUserDialogProps {
  *
  * Creates a REAL platform account, usable everywhere — not a module-scoped
  * one, since no module service stores user profiles — via the identical
- * flow RegisterPage.tsx uses. The created account starts PENDING /
- * PENDING_VERIFICATION and cannot log in until its owner verifies the
- * email sent to them (see services/auth-service/README.md "Email
- * verification") — this dialog does not, and cannot, skip that step on
- * their behalf.
+ * flow RegisterPage.tsx uses. Whether the created account starts ACTIVE or
+ * PENDING_VERIFICATION (and so needs its owner to click an emailed link
+ * before logging in) is a platform-wide runtime setting, not something this
+ * dialog controls or can see — see PlatformSettingsPage.tsx /
+ * services/auth-service/README.md "Email verification".
  */
 export function CreateUserDialog({ open, onClose, onCreated, scopeLabel }: CreateUserDialogProps) {
   const queryClient = useQueryClient();
@@ -147,8 +147,8 @@ export function CreateUserDialog({ open, onClose, onCreated, scopeLabel }: Creat
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               This creates a real ORA account, usable {scopeLabel ? scopeLabel : 'across the whole platform'} — not
-              just here. They&apos;ll need to verify their email (a link is sent automatically) before they can log
-              in.
+              just here. Depending on the platform&apos;s email-verification setting (Administration → Settings), they
+              may need to click a link emailed to them before they can log in.
             </Typography>
             {partialAccountWarning && (
               <Alert severity="warning">

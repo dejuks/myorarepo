@@ -8,15 +8,17 @@ Registers login credentials for a userId created by `user-service`; authenticate
 
 ### Email verification
 
-Every new account starts `PENDING_VERIFICATION` and **login is rejected** (`assertAccountIsUsable` in `auth.service.ts`) until it's verified — there is no way around this except verifying or an admin manually activating the `user-service` profile. The flow mirrors the existing password-reset token pattern exactly:
+Whether a new account must verify its email before logging in is a **platform-wide runtime setting** (`platform_settings.require_email_verification`, see `PlatformSetting` entity), not a fixed behavior — a super-admin can turn it on or off for every user, instantly, from the web app's Admin → Settings page (`GET`/`PATCH /auth/settings`, ADMIN only), with no restart or redeploy. `REQUIRE_EMAIL_VERIFICATION` (env var, default `false`) only seeds that setting's *initial* value the very first time this service boots against a fresh database (`bootstrapPlatformSettings` in `server.ts`) — after that first boot the env var is never read again; the DB row is the only thing that matters.
+
+**When the setting is on** (`requireEmailVerification: true`), every new account starts `PENDING_VERIFICATION` and **login is rejected** (`assertAccountIsUsable` in `auth.service.ts`) until it's verified. The flow mirrors the existing password-reset token pattern exactly:
 
 1. `register()` generates a random 256-bit token, stores only its SHA-256 hash (`email_verification_tokens` table, 24-hour expiry), and publishes `auth.email_verification.requested` with the **raw** token embedded in a ready-made link (`{FRONTEND_URL}/verify-email?token=...`) — notification-service turns that into an actual email (console-logged in dev, since `EMAIL_PROVIDER=console` by default; see notification-service's README).
-2. Clicking the link hits the frontend's `/verify-email` page, which calls `POST /auth/verify-email { token }`. On success this is the **only** thing that flips `PENDING_VERIFICATION` → `ACTIVE` here, and publishes `auth.email_verification.completed`, which `user-service` consumes to activate the matching profile (see `services/user-service/README.md` "Auto-activation").
+2. Clicking the link hits the frontend's `/verify-email` page, which calls `POST /auth/verify-email { token }`. On success this is the thing that flips `PENDING_VERIFICATION` → `ACTIVE` here, and publishes `auth.email_verification.completed`, which `user-service` consumes to activate the matching profile (see `services/user-service/README.md` "Auto-activation").
 3. If the link is lost or the 24-hour token expires, `POST /auth/verify-email/resend { email }` issues a fresh one (invalidating the previous one first) — same no-account-enumeration posture as password-reset (always 202, regardless of whether the email exists or is already verified).
 
-This applies identically whether the account was created via self-registration or an admin/module-admin's "Create user" action — the person who owns that email address still has to prove it before the account can log in.
+**When the setting is off** (the default on a fresh install), `register()` creates every new account `ACTIVE` immediately — no token issued, no email sent, login works right away — and still publishes `auth.email_verification.completed` synchronously so `user-service`'s auto-activation consumer keeps working unchanged (see `activateWithoutVerification` in `auth.service.ts`).
 
-**Disabling it for local development** — `REQUIRE_EMAIL_VERIFICATION` (env var, default `true`). Set to `false` in your local `.env` only, never in staging/production, and every new account (self-registered or admin-created) is created `ACTIVE` immediately: no token is issued, no email is sent, and login works right away. This exists purely so testing user/account creation locally doesn't require fishing a link out of notification-service's console logs on every run — the real flow above is exercised in full whenever the flag is left at its default. `auth.email_verification.completed` is still published in this mode (so `user-service`'s auto-activation consumer still fires and profiles don't get stuck `PENDING`), it's just triggered immediately by `register()` instead of by a token being verified.
+This applies identically whether the account was created via self-registration or an admin/module-admin's "Create user" action — the setting is global, not per-account or per-module. Turn it on before staging/production; leave it off for a frictionless local/dev loop that doesn't require fishing a link out of notification-service's console logs on every test account.
 
 ## Quick start
 
@@ -42,7 +44,7 @@ npm run test:cov   # with coverage
 
 ## API surface
 
-All business endpoints are versioned under `/api/v1`; `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `POST /auth/verify-email`, `POST /auth/verify-email/resend`, `POST /auth/mfa/enroll`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`. `GET /health` and `GET /health/ready` are unversioned, for the container orchestrator. Full request/response schemas are in Swagger UI at `/api-docs` once the service is running.
+All business endpoints are versioned under `/api/v1`; `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `POST /auth/verify-email`, `POST /auth/verify-email/resend`, `POST /auth/mfa/enroll`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`, `GET /auth/settings`, `PATCH /auth/settings` (both ADMIN only). `GET /health` and `GET /health/ready` are unversioned, for the container orchestrator. Full request/response schemas are in Swagger UI at `/api-docs` once the service is running.
 
 ## Super-admin bootstrap
 

@@ -116,7 +116,11 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_EXCHANGE: ora.auth.events
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-true}
+      # One-time seed value only, for a fresh database — see config/env.ts in auth-service.
+      # The live setting afterwards is the platform_settings DB row, toggleable at runtime
+      # from Admin -> Settings by the super-admin. Off by default so a fresh stack works
+      # immediately; turn on before staging/production (here or via that Settings toggle).
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMe123!}
       LOG_LEVEL: info
     depends_on:

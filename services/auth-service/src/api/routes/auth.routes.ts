@@ -5,9 +5,10 @@ import { UserCredentialRepository } from '@infrastructure/repositories/user-cred
 import { RefreshTokenRepository } from '@infrastructure/repositories/refresh-token.repository';
 import { PasswordResetTokenRepository } from '@infrastructure/repositories/password-reset-token.repository';
 import { EmailVerificationTokenRepository } from '@infrastructure/repositories/email-verification-token.repository';
+import { PlatformSettingsRepository } from '@infrastructure/repositories/platform-settings.repository';
 import { AuthAuditLogRepository } from '@infrastructure/repositories/auth-audit-log.repository';
 import { validateDto } from '@api/middleware/validate-dto.middleware';
-import { requireAuth } from '@api/middleware/auth.middleware';
+import { requireAuth, requireRoles } from '@api/middleware/auth.middleware';
 import { loginRateLimiter } from '@api/middleware/rate-limiter.middleware';
 import { RegisterDto } from '@application/dto/register.dto';
 import { LoginDto } from '@application/dto/login.dto';
@@ -18,6 +19,7 @@ import { ResetPasswordDto } from '@application/dto/reset-password.dto';
 import { VerifyEmailDto } from '@application/dto/verify-email.dto';
 import { ResendVerificationDto } from '@application/dto/resend-verification.dto';
 import { VerifyMfaDto } from '@application/dto/verify-mfa.dto';
+import { UpdatePlatformSettingsDto } from '@application/dto/update-platform-settings.dto';
 
 const router = Router();
 
@@ -27,6 +29,7 @@ const authService = new AuthService(
   new RefreshTokenRepository(),
   new PasswordResetTokenRepository(),
   new EmailVerificationTokenRepository(),
+  new PlatformSettingsRepository(),
   new AuthAuditLogRepository(),
 );
 const controller = new AuthController(authService);
@@ -201,5 +204,40 @@ router.post('/auth/mfa/confirm', requireAuth, validateDto(VerifyMfaDto), control
  *       204: { description: MFA disabled }
  */
 router.post('/auth/mfa/disable', requireAuth, controller.disableMfa);
+
+/**
+ * @openapi
+ * /auth/settings:
+ *   get:
+ *     summary: Platform-wide runtime settings (currently just requireEmailVerification) — ADMIN only
+ *     tags: [Auth, Settings]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Current settings
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/PlatformSettingsResponseDto' }
+ *       403: { description: Caller is not platform ADMIN }
+ */
+router.get('/auth/settings', requireAuth, requireRoles('ADMIN'), controller.getPlatformSettings);
+
+/**
+ * @openapi
+ * /auth/settings:
+ *   patch:
+ *     summary: Updates platform-wide runtime settings for every current and future user — ADMIN only, no restart required
+ *     tags: [Auth, Settings]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/UpdatePlatformSettingsDto' }
+ *     responses:
+ *       200: { description: Settings updated }
+ *       403: { description: Caller is not platform ADMIN }
+ */
+router.patch('/auth/settings', requireAuth, requireRoles('ADMIN'), validateDto(UpdatePlatformSettingsDto), controller.updatePlatformSettings);
 
 export { router as authRouter };

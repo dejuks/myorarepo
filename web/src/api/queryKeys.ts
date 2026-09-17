@@ -10,4 +10,5 @@ export const queryKeys = {
   roles: ['roles'] as const,
   moduleRoles: (moduleKey: string) => ['module-roles', moduleKey] as const,
   moduleMemberRoles: (moduleKey: string, userId: string) => ['module-member-roles', moduleKey, userId] as const,
+  platformSettings: ['platform-settings'] as const,
 };

@@ -5,6 +5,7 @@ import {
   FakeRefreshTokenRepository,
   FakePasswordResetTokenRepository,
   FakeEmailVerificationTokenRepository,
+  FakePlatformSettingsRepository,
   FakeAuthAuditLogRepository,
 } from './fakes';
 import { hashPassword } from '@common/utils/password.util';
@@ -27,6 +28,7 @@ describe('AuthService', () => {
   let refreshTokenRepo: FakeRefreshTokenRepository;
   let passwordResetTokenRepo: FakePasswordResetTokenRepository;
   let emailVerificationTokenRepo: FakeEmailVerificationTokenRepository;
+  let platformSettingsRepo: FakePlatformSettingsRepository;
   let auditLogRepo: FakeAuthAuditLogRepository;
   let authService: AuthService;
 
@@ -35,8 +37,16 @@ describe('AuthService', () => {
     refreshTokenRepo = new FakeRefreshTokenRepository();
     passwordResetTokenRepo = new FakePasswordResetTokenRepository();
     emailVerificationTokenRepo = new FakeEmailVerificationTokenRepository();
+    platformSettingsRepo = new FakePlatformSettingsRepository(true); // requireEmailVerification: true — see auth.service.skip-verification.spec.ts for the false path
     auditLogRepo = new FakeAuthAuditLogRepository();
-    authService = new AuthService(userCredentialRepo, refreshTokenRepo, passwordResetTokenRepo, emailVerificationTokenRepo, auditLogRepo);
+    authService = new AuthService(
+      userCredentialRepo,
+      refreshTokenRepo,
+      passwordResetTokenRepo,
+      emailVerificationTokenRepo,
+      platformSettingsRepo,
+      auditLogRepo,
+    );
   });
 
   describe('register', () => {
@@ -328,6 +338,36 @@ describe('AuthService', () => {
 
       await authService.initiateMfaEnrollment(credential.userId);
       await expect(authService.confirmMfaEnrollment(credential.userId, '000000')).rejects.toMatchObject({ statusCode: 401 });
+    });
+  });
+
+  describe('platform settings', () => {
+    it('reports the current requireEmailVerification value', async () => {
+      const settings = await authService.getPlatformSettings();
+      expect(settings.requireEmailVerification).toBe(true);
+      expect(settings.updatedBy).toBeNull();
+    });
+
+    it('lets an admin flip requireEmailVerification for every user, with an audit trail', async () => {
+      const updated = await authService.updatePlatformSettings({ requireEmailVerification: false }, 'admin-user-1');
+
+      expect(updated.requireEmailVerification).toBe(false);
+      expect(updated.updatedBy).toBe('admin-user-1');
+      expect(platformSettingsRepo.row?.requireEmailVerification).toBe(false);
+
+      const auditEntry = auditLogRepo.entries.find(
+        (e) => (e as { eventType?: string }).eventType === 'PLATFORM_SETTINGS_UPDATED',
+      );
+      expect(auditEntry).toBeDefined();
+    });
+
+    it('a subsequent registration reflects the newly toggled setting immediately, with no restart', async () => {
+      await authService.updatePlatformSettings({ requireEmailVerification: false }, 'admin-user-2');
+
+      await authService.register({ userId: 'toggled-user', email: 'toggled@example.com', password: 'StrongPass1!' });
+
+      const stored = await userCredentialRepo.findByEmail('toggled@example.com');
+      expect(stored?.accountStatus).toBe(AccountStatus.ACTIVE);
     });
   });
 });
