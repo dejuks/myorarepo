@@ -58,6 +58,10 @@ const primaryNavItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: <DashboardIcon /> },
   { label: 'Profile', to: '/profile', icon: <PersonIcon /> },
   { label: 'Notifications', to: '/notifications', icon: <NotificationsIcon /> },
+  // Every signed-in account can read/create/edit articles — this is deliberately NOT
+  // gated like the "Module roles" section below, which is only for module-local role
+  // management. See wiki-service's ArticleService for why there's no extra role gate.
+  { label: 'Oromo Wikipedia', to: '/wiki', icon: <LocalLibraryIcon /> },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -174,7 +178,7 @@ export function DashboardLayout() {
               key={item.to}
               component={RouterLink}
               to={item.to}
-              selected={location.pathname === item.to}
+              selected={isSelected(item.to)}
               onClick={handleNavClick}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>

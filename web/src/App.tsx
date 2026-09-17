@@ -18,6 +18,9 @@ import { AdminUserDetailPage } from '@/pages/AdminUserDetailPage';
 import { AdminRolesPage } from '@/pages/AdminRolesPage';
 import { PlatformSettingsPage } from '@/pages/PlatformSettingsPage';
 import { ModuleRolesPage } from '@/pages/ModuleRolesPage';
+import { WikiListPage } from '@/pages/WikiListPage';
+import { WikiArticlePage } from '@/pages/WikiArticlePage';
+import { WikiArticleEditPage } from '@/pages/WikiArticleEditPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function App() {
@@ -44,6 +47,14 @@ export function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+
+          {/* Oromo Wikipedia — Phase 1 (articles + revision history). Any authenticated
+              account can create/edit, matching real Wikipedia's "logging in is the only
+              bar to editing" model — see ArticleService's doc comment. */}
+          <Route path="/wiki" element={<WikiListPage />} />
+          <Route path="/wiki/new" element={<WikiArticleEditPage />} />
+          <Route path="/wiki/:slug/edit" element={<WikiArticleEditPage />} />
+          <Route path="/wiki/:slug" element={<WikiArticlePage />} />
 
           <Route element={<AdminRoute />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />

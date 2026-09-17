@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import { env } from '@config/env';
 import { Role } from '@domain/entities/role.entity';
 import { UserRoleAssignment } from '@domain/entities/user-role-assignment.entity';
+import { Article } from '@domain/entities/article.entity';
+import { Revision } from '@domain/entities/revision.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -14,7 +16,7 @@ export const AppDataSource = new DataSource({
   ssl: env.DB_SSL ? { rejectUnauthorized: false } : false,
   synchronize: false,
   logging: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  entities: [Role, UserRoleAssignment],
+  entities: [Role, UserRoleAssignment, Article, Revision],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   migrationsTableName: 'migrations_history',
 });

@@ -1,12 +1,22 @@
 # ORA Platform — Wiki Service
 
-Owns roles and role assignments for the Oromo Wikipedia Platform — standalone RBAC for content moderation and governance (article creation/editing workflows live in a future pass; this slice is authorization only). See `docs/erd.md` for the `wiki_db` schema and the standalone-RBAC rationale.
+Owns the Oromo Wikipedia content layer (articles + full revision history) and roles/role assignments for content moderation and governance — fully standalone: it never calls another service over HTTP, per the platform's per-module-RBAC pattern. See `docs/erd.md` for the `wiki_db` schema and the standalone-RBAC rationale.
 
 ## Responsibilities
 
-Manages this module's role catalog (`GET/POST /api/v1/wiki/roles`, `DELETE /api/v1/wiki/roles/:id`) and per-member role assignment within the module (`GET/POST /api/v1/wiki/members/:userId/roles`, `DELETE /api/v1/wiki/members/:userId/roles/:roleName`). It does not store user profiles, credentials, passwords, or tokens, and it never calls `user-service` or `auth-service` over HTTP — authorization is resolved entirely from this service's own `wiki_db`, trusting only the JWT for the caller's identity (`userId`, `email`).
+**Content (Phase 1 — articles + revisions).** `GET/POST /api/v1/wiki/articles`, `GET/PUT /api/v1/wiki/articles/:slug`, `GET /api/v1/wiki/articles/:slug/revisions`, `GET /api/v1/wiki/articles/:slug/revisions/:revisionId`. Reads are public (no `requireAuth`); creating and editing require only a valid platform login — see "Editing model" below for why there's no extra role gate in Phase 1. Article content is Markdown, rendered client-side. Every edit appends a new immutable `Revision` row rather than overwriting content in place, so the full edit history is always available; "the current version" is simply the most recent revision for an article.
+
+**Governance.** Manages this module's role catalog (`GET/POST /api/v1/wiki/roles`, `DELETE /api/v1/wiki/roles/:id`) and per-member role assignment within the module (`GET/POST /api/v1/wiki/members/:userId/roles`, `DELETE /api/v1/wiki/members/:userId/roles/:roleName`). It does not store user profiles, credentials, passwords, or tokens, and it never calls `user-service` or `auth-service` over HTTP — authorization is resolved entirely from this service's own `wiki_db`, trusting only the JWT for the caller's identity (`userId`, `email`).
 
 This service never issues JWTs; it only verifies access tokens issued by `auth-service`, using the same `JWT_ACCESS_SECRET`.
+
+## Editing model (Phase 1)
+
+Any authenticated platform account can create and edit articles — there is no separate "become an editor" step, matching real Wikipedia's UX, and `REGISTERED_EDITOR` is treated as synonymous with "logged in." This deliberately sidesteps a platform-wide gap: module-local roles like `BUREAUCRAT` are assigned only in this service's own `wiki_db` and never make it into the JWT `roles` claim (nothing consumes the `user.role_assigned` event to update it), so `requireRoles('BUREAUCRAT')` can today only ever be satisfied by the platform-wide `ADMIN` override. That gap doesn't block Phase 1 since article read/write only needs `requireAuth`, but it will need a live-DB-lookup middleware (reading this service's own `userRoleRepo` directly, keeping the service standalone) before Phase 2's moderation actions (page delete/restore, blocks, protection, role promotion) can be correctly gated for a non-`ADMIN` `BUREAUCRAT`/`ADMINISTRATOR`.
+
+## Content model
+
+`Article` rows hold only metadata (`title`, `slug`, `createdBy`, timestamps) — no content column. All content lives on `Revision` rows (`articleId`, `content`, `editSummary`, `editorUserId`, `createdAt`), and edits always `INSERT` a new revision rather than `UPDATE` an existing one. Slugs are generated from the title (`slugify()` — lowercased, diacritics stripped, non-alphanumeric collapsed to hyphens) with a uniqueness loop appending `-2`, `-3`, ... on collision; Phase 1 has no page-move/rename support, so a slug is fixed once an article is created.
 
 ## Role model
 

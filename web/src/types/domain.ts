@@ -104,3 +104,32 @@ export interface PaginatedResult<T> {
   page: number;
   pageSize: number;
 }
+
+/** Mirrors services/wiki-service/src/domain/entities/article.entity.ts */
+export interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET/POST/PUT article responses combine the Article row with its current (latest) revision's content. */
+export interface ArticleWithContent extends Article {
+  content: string;
+  editSummary: string | null;
+  revisionId: string;
+  editorUserId: string;
+  revisionCreatedAt: string;
+}
+
+/** Mirrors services/wiki-service/src/domain/entities/revision.entity.ts */
+export interface Revision {
+  id: string;
+  articleId: string;
+  content: string;
+  editSummary: string | null;
+  editorUserId: string;
+  createdAt: string;
+}
