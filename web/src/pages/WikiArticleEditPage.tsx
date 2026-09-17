@@ -122,7 +122,7 @@ export function WikiArticleEditPage() {
   }
 
   return (
-    <Box maxWidth={900}>
+    <Box>
       <Breadcrumbs sx={{ mb: 1 }}>
         <Link underline="hover" color="text.secondary" href="/dashboard" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <HomeIcon fontSize="small" />

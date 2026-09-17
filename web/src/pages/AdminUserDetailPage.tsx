@@ -133,7 +133,7 @@ export function AdminUserDetailPage() {
   }
 
   return (
-    <Box maxWidth={760}>
+    <Box>
       <Button size="small" onClick={() => navigate('/admin/users')} sx={{ mb: 1 }}>
         &larr; Back to users
       </Button>

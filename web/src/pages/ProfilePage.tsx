@@ -201,7 +201,7 @@ export function ProfilePage() {
   }
 
   return (
-    <Box maxWidth={640}>
+    <Box>
       <Typography variant="h4" gutterBottom>
         Profile
       </Typography>

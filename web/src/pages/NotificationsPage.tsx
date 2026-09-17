@@ -59,7 +59,7 @@ export function NotificationsPage() {
   const totalPages = notificationsQuery.data ? Math.max(1, Math.ceil(notificationsQuery.data.total / PAGE_SIZE)) : 1;
 
   return (
-    <Box maxWidth={720}>
+    <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h4">Notifications</Typography>
         <Button
